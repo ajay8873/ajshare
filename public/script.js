@@ -2,8 +2,8 @@
 // AJShare Client Logic
 
 // Configuration
-const CHUNK_SIZE = 65536; // 64KB for maximum speed while maintaining cross-browser compatibility
-const BUFFER_THRESHOLD = 1048576; // 1MB backpressure threshold to keep the pipe saturated
+const CHUNK_SIZE = 262144; // 256KB for maximum speed while maintaining cross-browser compatibility
+const BUFFER_THRESHOLD = 8388608; // 8MB backpressure threshold to keep the pipe saturated
 const PING_INTERVAL = 30000; // 30 seconds
 
 // Application State
@@ -526,7 +526,7 @@ function sendNextChunks() {
   
   if (!dc || dc.readyState !== 'open') return;
   
-  const MAX_CONCURRENT_READS = 8;
+  const MAX_CONCURRENT_READS = 16;
   
   while (sendFileState.offset < file.size && 
          sendFileState.activeReads < MAX_CONCURRENT_READS &&
@@ -538,13 +538,17 @@ function sendNextChunks() {
     const slice = file.slice(currentOffset, currentOffset + CHUNK_SIZE);
     sendFileState.offset += slice.size;
     
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      sendFileState.activeReads--;
-      sendFileState.readQueue.set(currentIndex, e.target.result);
-      sendOrderedChunks();
-    };
-    reader.readAsArrayBuffer(slice);
+    slice.arrayBuffer()
+      .then((buffer) => {
+        sendFileState.activeReads--;
+        sendFileState.readQueue.set(currentIndex, buffer);
+        sendOrderedChunks();
+      })
+      .catch((err) => {
+        console.error('File read error:', err);
+        sendFileState.activeReads--;
+        cancelActiveTransfer();
+      });
   }
 }
 
@@ -618,8 +622,8 @@ function sendNextChunksWebSocket() {
     return;
   }
   
-  const WS_CHUNK_SIZE = 131072; // 128KB chunks for WebSocket
-  const MAX_CONCURRENT_READS = 8;
+  const WS_CHUNK_SIZE = 524288; // 512KB chunks for WebSocket
+  const MAX_CONCURRENT_READS = 16;
   
   while (sendFileState.offset < file.size && 
          sendFileState.activeReads < MAX_CONCURRENT_READS &&
@@ -631,20 +635,24 @@ function sendNextChunksWebSocket() {
     const slice = file.slice(currentOffset, currentOffset + WS_CHUNK_SIZE);
     sendFileState.offset += slice.size;
     
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      sendFileState.activeReads--;
-      sendFileState.readQueue.set(currentIndex, e.target.result);
-      sendOrderedChunksWebSocket();
-    };
-    reader.readAsArrayBuffer(slice);
+    slice.arrayBuffer()
+      .then((buffer) => {
+        sendFileState.activeReads--;
+        sendFileState.readQueue.set(currentIndex, buffer);
+        sendOrderedChunksWebSocket();
+      })
+      .catch((err) => {
+        console.error('File read error:', err);
+        sendFileState.activeReads--;
+        cancelActiveTransfer();
+      });
   }
 }
 
 function sendOrderedChunksWebSocket() {
   if (!socket || socket.readyState !== WebSocket.OPEN) return;
   
-  const WS_BUFFER_THRESHOLD = 1048576; // 1MB buffer threshold
+  const WS_BUFFER_THRESHOLD = 8388608; // 8MB buffer threshold
   
   while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
     if (socket.bufferedAmount >= WS_BUFFER_THRESHOLD) {
