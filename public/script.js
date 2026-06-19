@@ -2,9 +2,9 @@
 // AJShare Client Logic
 
 // Configuration
-const CHUNK_SIZE = 262144; // 256KB for maximum speed while maintaining cross-browser compatibility
-const BUFFER_THRESHOLD = 2097152; // 2MB backpressure threshold to prevent SCTP congestion collapse
-const PING_INTERVAL = 30000; // 30 seconds
+const CHUNK_SIZE = 65536; // 64KB for maximum WebRTC throughput and reliability
+const BUFFER_THRESHOLD = 4194304; // 4MB buffer to saturate the local link
+const PING_INTERVAL = 10000; // 10 seconds — keeps signaling alive even during file picker pauses
 
 // Application State
 let roomId = '';
@@ -12,6 +12,14 @@ let socket = null;
 let myId = '';
 let peers = new Map(); // peerId -> { pc, dc, name, deviceType }
 let pingIntervalId = null;
+let qrMode = 'local'; // 'local' or 'internet'
+let reconnectTimeoutId = null;
+let localIpAddress = '';
+let pendingSignals = [];
+
+// Transfer generation counter — increments on every reset so stale async
+// callbacks from a previous transfer can detect they are outdated and bail out.
+let transferGeneration = 0;
 
 // File Transfer State (Sender)
 let sendFileState = {
@@ -25,7 +33,9 @@ let sendFileState = {
   activeReads: 0, // Track concurrent disk reads in flight
   readQueue: new Map(), // index -> ArrayBuffer
   readIndex: 0,         // Index of the next chunk we slice/read from disk
-  sendIndex: 0          // Index of the next chunk we need to send
+  sendIndex: 0,         // Index of the next chunk we need to send
+  useWebSocketRelay: false,
+  isPickingFile: false  // true while the native file picker is open
 };
 
 // File Transfer State (Receiver)
@@ -37,7 +47,8 @@ let receiveFileState = {
   senderPeerId: null,
   startTime: null,
   lastBytesReceived: 0,
-  lastTime: null
+  lastTime: null,
+  finalized: false  // Guard against double-finalization
 };
 
 // Generate friendly peer names based on user agent or random list
@@ -76,12 +87,73 @@ if ('serviceWorker' in navigator) {
 }
 
 // Initialize Application
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   setupRoom();
-  generateQRCode();
   loadHistory();
+  
+  const isCapacitor = !!window.Capacitor || (window.location.hostname === 'localhost' && !window.location.port);
+  // Detect if this is the PC browser connected to the phone's local NanoHTTPD server
+  const isNanoHTTPD = !isCapacitor && window.location.port === '8080' && window.location.hostname !== 'localhost';
+
+  if (isCapacitor) {
+    // Phone side: fetch the phone's own LAN IP
+    try {
+      const res = await fetch('http://localhost:8080/api/ip');
+      const data = await res.json();
+      if (data && data.ip) {
+        localIpAddress = data.ip;
+        console.log('Phone local IP:', localIpAddress);
+      }
+    } catch (err) {
+      console.error('Failed to fetch local IP during startup:', err);
+    }
+  } else if (isNanoHTTPD) {
+    // PC side: ask the phone server what IP the PC is connecting from.
+    // This lets us rewrite mDNS-masked ICE candidates (d7a34b12.local → 192.168.1.x)
+    // so the phone can reach the PC directly instead of going through TURN.
+    try {
+      const res = await fetch('/api/peer-ip');
+      const data = await res.json();
+      if (data && data.ip) {
+        localIpAddress = data.ip;
+        console.log('PC LAN IP (from phone server):', localIpAddress);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch peer IP — ICE candidate rewriting disabled:', err);
+    }
+  }
+  
+  generateQRCode();
   connectSignaling();
   setupUIEventListeners();
+  
+  if (isCapacitor || isNanoHTTPD) {
+    const btn = document.getElementById('optimize-p2p-btn');
+    if (btn) {
+      btn.textContent = 'Active';
+      btn.className = 'btn btn-primary btn-sm';
+      btn.disabled = true;
+    }
+  }
+  
+  setTimeout(updateQRTabSlider, 100);
+});
+
+// Reconnect instantly when returning to the app
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    if (!socket || socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
+      console.log('App returned to foreground, reconnecting signaling...');
+      connectSignaling();
+    }
+  }
+});
+
+window.addEventListener('focus', () => {
+  if (!socket || socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
+    console.log('App focused, reconnecting signaling...');
+    connectSignaling();
+  }
 });
 
 // Setup room hash
@@ -100,22 +172,32 @@ function setupRoom() {
 
 // Connect to signaling server
 function connectSignaling() {
+  if (reconnectTimeoutId) {
+    clearTimeout(reconnectTimeoutId);
+    reconnectTimeoutId = null;
+  }
   const host = window.location.host;
   
   // Detect if running in a local development environment
-  const isDev = !host || 
+  const isDev = (!host || 
                 host.startsWith('localhost') || 
-                host.startsWith('127.0.0.1') || 
-                host.startsWith('192.168.') || 
-                host.startsWith('10.') || 
-                host.startsWith('172.');
+                host.startsWith('127.0.0.1')) && 
+                !window.Capacitor && 
+                !(window.location.hostname === 'localhost' && !window.location.port);
 
-  let wsProtocol = 'wss:';
+  // Use secure WebSocket only when page is served over HTTPS.
+  // When served over HTTP (e.g. from the phone's local NanoHTTPD server),
+  // we MUST use ws:// — Chrome blocks wss:// connections from http:// pages (Mixed Content).
+  let wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   let wsHost = 'ajshare.mehtaajay8873.workers.dev';
 
   if (isDev && window.location.protocol !== 'file:') {
-    wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     wsHost = host;
+  } else if (window.location.port === '8080' && window.location.hostname !== 'localhost') {
+    // PC browser connected to the phone's local NanoHTTPD server.
+    // Route signaling through the phone's WebSocket proxy on port 8081.
+    // ws://192.168.1.14:8081 → phone proxies → wss://ajshare.mehtaajay8873.workers.dev
+    wsHost = window.location.hostname + ':8081';
   }
   
   const wsUrl = `${wsProtocol}//${wsHost}/ws?room=${roomId}`;
@@ -135,6 +217,19 @@ function connectSignaling() {
         socket.send(JSON.stringify({ type: 'ping' }));
       }
     }, PING_INTERVAL);
+
+    // Send any pending signals
+    while (pendingSignals.length > 0) {
+      const pending = pendingSignals.shift();
+      sendSignal(pending.target, pending.signal);
+    }
+
+    // If we reconnected mid-transfer (e.g. after file picker paused the WebView),
+    // and the target peer is still in the room, re-initiate WebRTC toward them.
+    // The welcome handler will do this automatically, but log it for clarity.
+    if (sendFileState.isPickingFile && sendFileState.targetPeerId) {
+      console.log('Signaling reconnected during file pick. Will re-establish P2P after reconnect.');
+    }
   });
   
   socket.addEventListener('message', async (event) => {
@@ -153,13 +248,19 @@ function connectSignaling() {
   
   socket.addEventListener('close', () => {
     updateConnectionStatus('offline', 'Disconnected');
-    showToast('Connection lost. Reconnecting in 5s...', 'info');
+    if (!sendFileState.isPickingFile) {
+      showToast('Connection lost. Reconnecting...', 'info');
+    }
     clearInterval(pingIntervalId);
     
-    // Cleanup active peers on disconnect
-    peers.forEach((peer, peerId) => removePeer(peerId));
+    // Do NOT remove active WebRTC peers on signaling disconnect
+    // WebRTC connections can function/survive independently of the signaling channel!
     
-    setTimeout(connectSignaling, 5000);
+    if (!reconnectTimeoutId) {
+      // Reconnect instantly if we dropped during file picking; otherwise wait 5s
+      const delay = sendFileState.isPickingFile ? 0 : 5000;
+      reconnectTimeoutId = setTimeout(connectSignaling, delay);
+    }
   });
 }
 
@@ -170,6 +271,18 @@ function handleSignalingMessage(msg) {
       document.getElementById('my-peer-id').textContent = `${getDeviceType()} • ID: ${myId}`;
       document.getElementById('my-avatar').textContent = myId.substring(0, 2).toUpperCase();
       
+      // Prune any existing peers that are no longer in the room
+      const activePeers = new Set(msg.peers || []);
+      peers.forEach((peer, peerId) => {
+        // Do NOT prune the active transfer target/sender peer, or any peer with an open data channel
+        if (peerId === sendFileState.targetPeerId || peerId === receiveFileState.senderPeerId) return;
+        if (peer.dc && peer.dc.readyState === 'open') return;
+        
+        if (!activePeers.has(peerId)) {
+          removePeer(peerId);
+        }
+      });
+      
       // Pre-connect to all existing peers in the room
       if (msg.peers && msg.peers.length > 0) {
         msg.peers.forEach(peerId => {
@@ -179,14 +292,23 @@ function handleSignalingMessage(msg) {
       break;
       
     case 'peer-joined':
-      showToast('New peer entered the room', 'info');
+      // Only show toast if we don't already have this peer (avoid repeated toasts on reconnect)
+      // AND we are not currently in a file-picking flow (phone reconnects mid-pick).
+      if (!peers.has(msg.peerId) && !sendFileState.isPickingFile) {
+        showToast('New peer entered the room', 'info');
+      }
       // Connection will be initiated by the newly joined peer via the 'welcome' packet.
       // The existing peer just waits to receive the incoming offer signal.
       break;
       
     case 'peer-left':
-      showToast('A peer left the room', 'info');
-      removePeer(msg.peerId);
+      const peer = peers.get(msg.peerId);
+      if (peer && (peer.isSelectingFile || (peer.dc && peer.dc.readyState === 'open'))) {
+        console.log(`Peer ${msg.peerId} left signaling but is selecting a file or WebRTC is active — keeping peer.`);
+      } else {
+        showToast('A peer left the room', 'info');
+        removePeer(msg.peerId);
+      }
       break;
       
     case 'signal':
@@ -220,8 +342,8 @@ function handleSignalingMessage(msg) {
         closeTransferModal();
       } else if (sig.type === 'ws-cancel') {
         showToast('Transfer was cancelled by peer', 'danger');
+        resetAllTransferStates();
         closeTransferModal();
-        receiveFileState.chunks = [];
       } else {
         // Standard WebRTC signals (offer, answer, candidate)
         handleIncomingSignal(msg.sender, sig);
@@ -250,7 +372,11 @@ const rtcConfig = {
 };
 
 function initiatePeerConnection(peerId) {
-  if (peers.has(peerId)) return;
+  if (peers.has(peerId)) {
+    const peer = peers.get(peerId);
+    if (peer.dc && (peer.dc.readyState === 'open' || peer.dc.readyState === 'connecting')) return;
+    removePeer(peerId);
+  }
   
   const pc = new RTCPeerConnection(rtcConfig);
   const friendlyName = generateFriendlyName();
@@ -267,9 +393,15 @@ function initiatePeerConnection(peerId) {
   
   pc.oniceconnectionstatechange = () => {
     console.log(`ICE Connection State with ${peerId}: ${pc.iceConnectionState}`);
+    if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+      removePeer(peerId);
+    }
   };
   pc.onconnectionstatechange = () => {
     console.log(`Connection State with ${peerId}: ${pc.connectionState}`);
+    if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      removePeer(peerId);
+    }
   };
   
   // Create RTCDataChannel
@@ -320,9 +452,15 @@ function handleIncomingSignal(peerId, signal) {
     
     pc.oniceconnectionstatechange = () => {
       console.log(`ICE Connection State with ${peerId}: ${pc.iceConnectionState}`);
+      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
+        removePeer(peerId);
+      }
     };
     pc.onconnectionstatechange = () => {
       console.log(`Connection State with ${peerId}: ${pc.connectionState}`);
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        removePeer(peerId);
+      }
     };
     
     pc.onicecandidate = (event) => {
@@ -371,7 +509,7 @@ function handleIncomingSignal(peerId, signal) {
   } else if (signal.type === 'candidate') {
     console.log(`Remote ICE candidate received: ${signal.candidate.candidate}`);
     if (peerInfo.remoteDescSet) {
-      pc.addIceCandidate(signal.candidate)
+      pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
         .catch(err => console.error('Error adding ICE candidate:', err));
     } else {
       // Queue candidate
@@ -383,7 +521,7 @@ function handleIncomingSignal(peerId, signal) {
 function processCandidateQueue(peerInfo) {
   if (peerInfo.candidateQueue && peerInfo.candidateQueue.length > 0) {
     peerInfo.candidateQueue.forEach(candidate => {
-      peerInfo.pc.addIceCandidate(candidate)
+      peerInfo.pc.addIceCandidate(new RTCIceCandidate(candidate))
         .catch(err => console.error('Error adding queued ICE candidate:', err));
     });
     peerInfo.candidateQueue = [];
@@ -392,7 +530,7 @@ function processCandidateQueue(peerInfo) {
 
 function setupDataChannel(peerId, dc) {
   dc.binaryType = 'arraybuffer';
-  dc.bufferedAmountLowThreshold = 262144; // 256KB low threshold to keep buffer filled incrementally
+  dc.bufferedAmountLowThreshold = 1048576; // 1MB low threshold to keep buffer filled incrementally
   
   dc.onopen = () => {
     const card = document.getElementById(`peer-${peerId}`);
@@ -400,14 +538,44 @@ function setupDataChannel(peerId, dc) {
       card.classList.add('active');
     }
     updatePeerConnectionBadge(peerId);
+    
+    // Dynamically upgrade pending WebSocket relay requests to Direct P2P
+    if (sendFileState.targetPeerId === peerId && sendFileState.file && sendFileState.useWebSocketRelay) {
+      console.log(`WebRTC channel opened with target peer ${peerId}. Upgrading pending transfer to Direct P2P.`);
+      sendFileState.useWebSocketRelay = false;
+      sendFileState.activeChannel = dc;
+      
+      const badge = document.getElementById('connection-mode-badge');
+      if (badge) {
+        badge.textContent = 'Will use Direct P2P (0 Internet Data)';
+        badge.className = 'connection-mode-badge direct';
+      }
+      
+      try {
+        dc.send(JSON.stringify({
+          type: 'meta',
+          name: sendFileState.file.name,
+          size: sendFileState.file.size
+        }));
+      } catch (e) {
+        console.error('Failed to send upgraded meta over WebRTC:', e);
+      }
+    }
   };
   
   dc.onclose = () => {
-    const card = document.getElementById(`peer-${peerId}`);
-    if (card) {
-      card.classList.remove('active');
+    console.log(`WebRTC Data Channel with ${peerId} closed.`);
+    const peer = peers.get(peerId);
+    // Keep the peer alive if they are selecting a file OR if they are our transfer target
+    if (peer && (peer.isSelectingFile || sendFileState.targetPeerId === peerId)) {
+      const card = document.getElementById(`peer-${peerId}`);
+      if (card) {
+        card.classList.remove('active');
+      }
+      updatePeerConnectionBadge(peerId);
+    } else {
+      removePeer(peerId);
     }
-    updatePeerConnectionBadge(peerId);
   };
   
   dc.onmessage = (event) => {
@@ -415,13 +583,89 @@ function setupDataChannel(peerId, dc) {
   };
 }
 
+function rewriteSdpOrCandidate(signal) {
+  if (!localIpAddress) return signal;
+  
+  // Create a deep copy to avoid mutating the original WebRTC objects
+  const signalCopy = JSON.parse(JSON.stringify(signal));
+  
+  const injectLocalHostCandidate = (candStr) => {
+    if (!localIpAddress) return null;
+    const parts = candStr.split(' ');
+    if (parts.length < 8) return null;
+
+    const typ = parts[7];
+    const ip  = parts[4];
+
+    // ── Case 1: mDNS host candidate (e.g. d7a3b1.local 50443 typ host) ──────
+    // Chrome hides the local IP with a .local mDNS alias, but the PORT is real.
+    // Replace the .local alias with the actual LAN IP, keeping the port intact.
+    if (typ === 'host' && ip && ip.endsWith('.local')) {
+      parts[4] = localIpAddress;
+      const rewritten = parts.join(' ');
+      console.log('Rewrote mDNS candidate to LAN IP:', rewritten);
+      return rewritten;
+    }
+
+    // ── Case 2: STUN srflx (only synthesize when rport is non-zero) ──────────
+    // Chrome privacy mode sets raddr 0.0.0.0 rport 0 → skip synthesis in that
+    // case (the mDNS candidate above already provides the correct local entry).
+    if (typ === 'srflx') {
+      let rport = null;
+      for (let i = 8; i < parts.length - 1; i++) {
+        if (parts[i] === 'rport' && parts[i + 1] !== '0') {
+          rport = parts[i + 1];
+          break;
+        }
+      }
+      if (!rport) return null; // rport 0 → cannot synthesize a valid candidate
+      const foundation = parts[0].includes(':') ? parts[0].split(':')[1] : parts[0];
+      const newCand = `candidate:${foundation} ${parts[1]} udp 2122260223 ${localIpAddress} ${rport} typ host`;
+      console.log('Synthesized local host candidate from STUN rport:', newCand);
+      return newCand;
+    }
+
+    return null;
+  };
+
+  if (signalCopy.type === 'candidate' && signalCopy.candidate) {
+    let candStr = signalCopy.candidate.candidate;
+    const newCand = injectLocalHostCandidate(candStr);
+    if (newCand) {
+      signalCopy.candidate.candidate = newCand;
+    }
+  } else if ((signalCopy.type === 'offer' || signalCopy.type === 'answer') && signalCopy.sdp) {
+    const lines = signalCopy.sdp.split('\r\n');
+    const newLines = [];
+    for (let line of lines) {
+      newLines.push(line);
+      if (line.startsWith('a=candidate:')) {
+        const candStr = line.substring(2);
+        const newCand = injectLocalHostCandidate(candStr);
+        if (newCand) {
+          const newCandLine = 'a=' + newCand;
+          if (!newLines.includes(newCandLine)) {
+            newLines.push(newCandLine);
+            console.log('Injected synthesized host candidate into SDP:', newCandLine);
+          }
+        }
+      }
+    }
+    signalCopy.sdp = newLines.join('\r\n');
+  }
+  return signalCopy;
+}
+
 function sendSignal(target, signal) {
   if (socket && socket.readyState === WebSocket.OPEN) {
+    const preparedSignal = rewriteSdpOrCandidate(signal);
     socket.send(JSON.stringify({
       type: 'signal',
       target: target,
-      signal: signal
+      signal: preparedSignal
     }));
+  } else {
+    pendingSignals.push({ target: target, signal: signal });
   }
 }
 
@@ -466,11 +710,19 @@ function handleDataChannelMessage(peerId, data) {
           closeTransferModal();
           break;
           
+        case 'selecting-file':
+          console.log(`Peer ${peerId} is selecting a file.`);
+          peerInfo.isSelectingFile = true;
+          if (peerInfo.selectingFileTimeoutId) clearTimeout(peerInfo.selectingFileTimeoutId);
+          peerInfo.selectingFileTimeoutId = setTimeout(() => {
+            peerInfo.isSelectingFile = false;
+          }, 30000);
+          break;
+          
         case 'cancel':
           showToast('Transfer was cancelled by peer', 'danger');
+          resetAllTransferStates();
           closeTransferModal();
-          // Reset receiver state
-          receiveFileState.chunks = [];
           break;
       }
     } catch (err) {
@@ -485,6 +737,13 @@ function handleDataChannelMessage(peerId, data) {
 // Transmission (Sender) logic with backpressure
 function selectAndSendFile(peerId) {
   sendFileState.targetPeerId = peerId;
+  sendFileState.isPickingFile = true;  // Mark that file picker is about to open
+  const peer = peers.get(peerId);
+  if (peer && peer.dc && peer.dc.readyState === 'open') {
+    try {
+      peer.dc.send(JSON.stringify({ type: 'selecting-file' }));
+    } catch(e){}
+  }
   document.getElementById('file-input').click();
 }
 
@@ -535,6 +794,13 @@ function sendNextChunks() {
   
   const MAX_CONCURRENT_READS = 16;
   
+  // Pause reading from disk if our memory queue is full or data channel buffer is saturated
+  if (dc.bufferedAmount >= BUFFER_THRESHOLD || 
+      (sendFileState.readIndex - sendFileState.sendIndex) >= MAX_CONCURRENT_READS) {
+    setTimeout(sendNextChunks, 10);
+    return;
+  }
+  
   while (sendFileState.offset < file.size && 
          sendFileState.activeReads < MAX_CONCURRENT_READS &&
          (sendFileState.readIndex - sendFileState.sendIndex) < MAX_CONCURRENT_READS) {
@@ -565,6 +831,8 @@ function sendOrderedChunks() {
   
   while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
     if (dc.bufferedAmount >= BUFFER_THRESHOLD) {
+      // Schedule a poll check shortly to resume sending when buffer drains
+      setTimeout(sendOrderedChunks, 10);
       break;
     }
     
@@ -713,6 +981,9 @@ function handleRelayedWebSocketChunk(arrayBuffer) {
 }
 
 function processIncomingChunk(peerId, data) {
+  // Guard: ignore chunks if this state has been reset (e.g. after cancel)
+  if (!receiveFileState.senderPeerId || receiveFileState.finalized) return;
+
   if (!receiveFileState.startTime) {
     receiveFileState.startTime = performance.now();
     receiveFileState.lastTime = receiveFileState.startTime;
@@ -758,11 +1029,15 @@ function processIncomingChunk(peerId, data) {
 
 // Receive completion
 function finalizeReceivedFile() {
+  // Guard against double-finalization (e.g. caused by a cancel signal arriving after completion)
+  if (receiveFileState.finalized) return;
+  receiveFileState.finalized = true;
+
   showToast('File received successfully!', 'success');
   addHistoryItem(receiveFileState.fileName, receiveFileState.fileSize, 'received', 'completed');
   
   if (receiveFileState.useStream && navigator.serviceWorker && navigator.serviceWorker.controller) {
-    // Close the stream in Service Worker
+    // Close the stream in Service Worker — browser will save it to disk
     navigator.serviceWorker.controller.postMessage({
       type: 'CLOSE_STREAM',
       streamId: receiveFileState.streamId
@@ -784,7 +1059,7 @@ function finalizeReceivedFile() {
     }, 1000);
   }
   
-  // Cleanup
+  // Cleanup after short delay
   setTimeout(() => {
     closeTransferModal();
     receiveFileState.chunks = [];
@@ -840,22 +1115,64 @@ async function updateLiveConnectionModeBadge(isSender) {
     const stats = await peerInfo.pc.getStats();
     let localType = '';
     let remoteType = '';
+    let localIp = '';
+    let remoteIp = '';
     
+    // 1. Try to find the active candidate pair from the transport report
+    let activePair = null;
     stats.forEach(report => {
-      if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.nominated) {
-        const localCand = stats.get(report.localCandidateId);
-        const remoteCand = stats.get(report.remoteCandidateId);
-        if (localCand && remoteCand) {
-          localType = localCand.candidateType;
-          remoteType = remoteCand.candidateType;
-        }
+      if (report.type === 'transport' && report.selectedCandidatePairId) {
+        activePair = stats.get(report.selectedCandidatePairId);
       }
     });
+    
+    // 2. Fallback to scanning candidate-pairs directly
+    if (!activePair) {
+      stats.forEach(report => {
+        if (report.type === 'candidate-pair' && (report.selected || report.nominated || report.state === 'succeeded')) {
+          activePair = report;
+        }
+      });
+    }
+    
+    if (activePair) {
+      const localCand = stats.get(activePair.localCandidateId);
+      const remoteCand = stats.get(activePair.remoteCandidateId);
+      if (localCand && remoteCand) {
+        localType = localCand.candidateType;
+        remoteType = remoteCand.candidateType;
+        localIp = localCand.ip || localCand.address || localCand.ipAddress || '';
+        remoteIp = remoteCand.ip || remoteCand.address || remoteCand.ipAddress || '';
+      }
+    }
 
-    if (localType === 'relay' || remoteType === 'relay') {
+    const isLocalIp = (ip) => {
+      if (!ip) return false;
+      const cleanIp = ip.trim().toLowerCase();
+      return cleanIp.startsWith('192.168.') || 
+             cleanIp.startsWith('10.') || 
+             cleanIp.startsWith('172.') || 
+             cleanIp.startsWith('127.') || 
+             cleanIp.startsWith('169.254.') || 
+             cleanIp.endsWith('.local') ||
+             cleanIp === 'localhost' ||
+             cleanIp === '::1';
+    };
+
+    // Determine if the connection is local
+    const hasRelay = localType === 'relay' || remoteType === 'relay';
+    const isLocal = !hasRelay && (
+      localType === 'host' || 
+      remoteType === 'host' || 
+      isLocalIp(localIp) || 
+      isLocalIp(remoteIp) ||
+      (localIpAddress && !hasRelay) // If the phone is serving the local gateway, any non-relay direct WebRTC connection is local
+    );
+
+    if (hasRelay) {
       badge.textContent = 'TURN Relay (Uses Internet Data)';
       badge.className = 'connection-mode-badge relay';
-    } else if (localType === 'host' && remoteType === 'host') {
+    } else if (isLocal) {
       badge.textContent = 'Direct Local P2P (0 Internet Data)';
       badge.className = 'connection-mode-badge direct';
     } else {
@@ -867,26 +1184,73 @@ async function updateLiveConnectionModeBadge(isSender) {
   }
 }
 
+function resetAllTransferStates() {
+  // Bump generation counter — all in-flight async callbacks will check this
+  // and bail out if it no longer matches the generation they were started in.
+  transferGeneration++;
+
+  // Reset sender state
+  sendFileState.activeChannel = null;
+  sendFileState.useWebSocketRelay = false;
+  sendFileState.file = null;
+  sendFileState.targetPeerId = null;
+  sendFileState.isPickingFile = false;
+  if (sendFileState.readQueue) {
+    sendFileState.readQueue.clear();
+  }
+  sendFileState.readIndex = 0;
+  sendFileState.sendIndex = 0;
+  sendFileState.offset = 0;
+  sendFileState.activeReads = 0;
+
+  // Cancel any active Service Worker stream for the receiver so it doesn't
+  // linger and cause a stray partial-file download.
+  if (receiveFileState.useStream && receiveFileState.streamId &&
+      navigator.serviceWorker && navigator.serviceWorker.controller) {
+    // Close the stream cleanly (not error) so the browser does NOT save a partial file.
+    navigator.serviceWorker.controller.postMessage({
+      type: 'CLOSE_STREAM',
+      streamId: receiveFileState.streamId
+    });
+    // Immediately revoke the iframe so the browser stops the download.
+    const iframe = document.getElementById('sw-download-iframe');
+    if (iframe) {
+      iframe.src = 'about:blank';
+    }
+  }
+
+  // Reset receiver state
+  receiveFileState.chunks = [];
+  receiveFileState.senderPeerId = null;
+  receiveFileState.fileName = '';
+  receiveFileState.fileSize = 0;
+  receiveFileState.receivedSize = 0;
+  receiveFileState.useWebSocketRelay = false;
+  receiveFileState.useStream = false;
+  receiveFileState.streamId = null;
+  receiveFileState.finalized = false;
+}
+
 // Cancel transfers
 function cancelActiveTransfer() {
-  // If sender
-  if (sendFileState.activeChannel || sendFileState.useWebSocketRelay) {
-    if (sendFileState.file) {
-      addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'cancelled');
-    }
+  let hadActivity = false;
+
+  // Sender: cancel if actively sending OR if waiting for accept (file chosen, no channel yet)
+  if (sendFileState.file) {
+    hadActivity = true;
+    addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'cancelled');
     try {
-      if (sendFileState.useWebSocketRelay) {
+      if (sendFileState.useWebSocketRelay && sendFileState.targetPeerId) {
         sendSignal(sendFileState.targetPeerId, { type: 'ws-cancel' });
-      } else {
+      } else if (sendFileState.activeChannel && sendFileState.activeChannel.readyState === 'open') {
         sendFileState.activeChannel.send(JSON.stringify({ type: 'cancel' }));
       }
     } catch(e){}
-    sendFileState.activeChannel = null;
-    sendFileState.useWebSocketRelay = false;
   }
   
-  // If receiver
+  // Receiver: cancel if waiting for or receiving data
   if (receiveFileState.senderPeerId) {
+    hadActivity = true;
     if (receiveFileState.fileName) {
       addHistoryItem(receiveFileState.fileName, receiveFileState.fileSize, 'received', 'cancelled');
     }
@@ -900,24 +1264,27 @@ function cancelActiveTransfer() {
         }
       }
     } catch(e){}
-    
-    if (receiveFileState.useStream && navigator.serviceWorker && navigator.serviceWorker.controller) {
-      navigator.serviceWorker.controller.postMessage({
-        type: 'CANCEL_STREAM',
-        streamId: receiveFileState.streamId
-      });
-    }
-    
-    receiveFileState.chunks = [];
+    // Note: SW stream cleanup is handled inside resetAllTransferStates()
   }
   
+  // resetAllTransferStates handles SW stream cleanup
+  resetAllTransferStates();
   closeTransferModal();
-  showToast('Transfer cancelled', 'info');
+  if (hadActivity) {
+    showToast('Transfer cancelled', 'info');
+  }
 }
 
 // UI Helper updates & Events
 function addPeerCardToGrid(peerId, name) {
   const grid = document.getElementById('peer-grid');
+  
+  // Clean up any stale peers that were marked as selecting a file
+  peers.forEach((peer, oldPeerId) => {
+    if (peer.isSelectingFile) {
+      removePeer(oldPeerId);
+    }
+  });
   
   // Remove empty state if present
   const emptyState = document.getElementById('empty-state');
@@ -1005,13 +1372,97 @@ function updateConnectionStatus(status, text) {
   indicator.querySelector('.status-text').textContent = text;
 }
 
+function updateQRTabSlider() {
+  const activeTab = document.querySelector('.qr-tab.active');
+  const slider = document.querySelector('.qr-tab-slider');
+  if (activeTab && slider) {
+    slider.style.left = `${activeTab.offsetLeft}px`;
+    slider.style.width = `${activeTab.offsetWidth}px`;
+  }
+}
+
 function setupUIEventListeners() {
+  // QR Mode tab switcher
+  const tabLocal = document.getElementById('qr-tab-local');
+  const tabInternet = document.getElementById('qr-tab-internet');
+  if (tabLocal && tabInternet) {
+    tabLocal.addEventListener('click', () => {
+      if (qrMode === 'local') return;
+      qrMode = 'local';
+      tabLocal.classList.add('active');
+      tabInternet.classList.remove('active');
+      updateQRTabSlider();
+      generateQRCode();
+    });
+    tabInternet.addEventListener('click', () => {
+      if (qrMode === 'internet') return;
+      qrMode = 'internet';
+      tabInternet.classList.add('active');
+      tabLocal.classList.remove('active');
+      updateQRTabSlider();
+      generateQRCode();
+    });
+    window.addEventListener('resize', updateQRTabSlider);
+  }
+
+// Request media permission temporarily to bypass WebRTC mDNS IP obfuscation
+async function enableLocalIPs() {
+  const btn = document.getElementById('optimize-p2p-btn');
+  
+  const isCapacitor = !!window.Capacitor || (window.location.hostname === 'localhost' && !window.location.port);
+  const isNanoHTTPD = !isCapacitor && window.location.port === '8080' && window.location.hostname !== 'localhost';
+  
+  if (isCapacitor || isNanoHTTPD) {
+    btn.textContent = 'Active';
+    btn.className = 'btn btn-primary btn-sm';
+    btn.disabled = true;
+    showToast('Local P2P already optimized via native server!', 'success');
+    return;
+  }
+
+  btn.textContent = 'Optimizing...';
+  btn.disabled = true;
+  
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('MediaDevices API not supported on this context (requires HTTPS or localhost)');
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Stop tracks immediately to release microphone
+    stream.getTracks().forEach(track => track.stop());
+    
+    btn.textContent = 'Active';
+    btn.className = 'btn btn-primary btn-sm';
+    showToast('Local P2P optimized! Disabling mDNS obfuscation.', 'success');
+    
+    // Reconnect existing peer connections so they gather raw local IPs
+    const oldPeers = Array.from(peers.keys());
+    oldPeers.forEach(peerId => {
+      removePeer(peerId);
+    });
+    
+    // Trigger offer renegotiation on signaling channel to gather new candidates
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'ping' }));
+    }
+  } catch (err) {
+    console.warn('Microphone permission denied, local IP gathering disabled:', err);
+    btn.textContent = 'Failed';
+    btn.className = 'btn btn-danger btn-sm';
+    btn.disabled = false;
+    showToast(`Failed: ${err.message}. Please click the lock/settings icon in the address bar and set Microphone to "Allow".`, 'danger');
+  }
+}
+
   // Relay toggle update connection badges
   document.getElementById('relay-toggle').addEventListener('change', () => {
     peers.forEach((peer, peerId) => {
       updatePeerConnectionBadge(peerId);
     });
   });
+
+  // Optimize local P2P button click handler
+  document.getElementById('optimize-p2p-btn').addEventListener('click', enableLocalIPs);
 
   // Copy Room Link
   document.getElementById('copy-room-btn').addEventListener('click', copyRoomLink);
@@ -1021,55 +1472,77 @@ function setupUIEventListeners() {
   document.getElementById('clear-history-btn').addEventListener('click', clearHistory);
   
   // File Input Handler
-  document.getElementById('file-input').addEventListener('change', (e) => {
+  document.getElementById('file-input').addEventListener('change', async (e) => {
+    sendFileState.isPickingFile = false;  // File picker closed
     const file = e.target.files[0];
-    if (file && sendFileState.targetPeerId) {
-      sendFileState.file = file;
-      
-      const peer = peers.get(sendFileState.targetPeerId);
-      
-      const forceRelay = document.getElementById('relay-toggle').checked;
-      
-      if (peer && peer.dc && peer.dc.readyState === 'open' && !forceRelay) {
-        sendFileState.useWebSocketRelay = false;
-        
-        // Send meta information to receiver
-        peer.dc.send(JSON.stringify({
-          type: 'meta',
-          name: file.name,
-          size: file.size
-        }));
-      } else {
-        // Fallback: Send meta over WebSocket Signaling channel
-        sendFileState.useWebSocketRelay = true;
-        showToast('Relaying via WebSocket...', 'info');
-        
-        sendSignal(sendFileState.targetPeerId, {
-          type: 'ws-meta',
-          name: file.name,
-          size: file.size
-        });
-      }
-      
-      // Show indicator that we are waiting for user acceptance
-      document.getElementById('transfer-title').textContent = 'Waiting for Accept';
-      document.getElementById('transfer-peer-info').textContent = `Waiting for ${peer ? peer.name : 'Peer'} to accept...`;
-      
-      const badge = document.getElementById('connection-mode-badge');
-      if (sendFileState.useWebSocketRelay) {
-        badge.textContent = 'Will use WebSocket Relay (Uses Internet Data)';
-        badge.className = 'connection-mode-badge relay';
-      } else {
-        badge.textContent = 'Will use Direct P2P (0 Internet Data)';
-        badge.className = 'connection-mode-badge direct';
-      }
+    if (!file || !sendFileState.targetPeerId) return;
 
-      document.getElementById('transfer-speed').textContent = '-';
-      document.getElementById('time-remaining').textContent = '-';
-      document.getElementById('progress-bar').style.width = '0%';
-      document.getElementById('progress-percent').textContent = '0%';
-      document.getElementById('transferred-bytes').textContent = `File: ${file.name} (${formatBytes(file.size)})`;
-      document.getElementById('transfer-modal').classList.add('active');
+    sendFileState.file = file;
+    
+    // Always tear down the old connection first to prevent sending meta over a dying/suspended socket,
+    // then establish a fresh connection for the file transfer.
+    removePeer(sendFileState.targetPeerId);
+    initiatePeerConnection(sendFileState.targetPeerId);
+    
+    const peer = peers.get(sendFileState.targetPeerId);
+    const forceRelay = document.getElementById('relay-toggle').checked;
+
+    // --- Show the "waiting" UI immediately so user sees feedback ---
+    document.getElementById('transfer-title').textContent = 'Waiting for Accept';
+    document.getElementById('transfer-peer-info').textContent = `Waiting for ${peer ? peer.name : 'Peer'} to accept...`;
+    document.getElementById('transfer-speed').textContent = '-';
+    document.getElementById('time-remaining').textContent = '-';
+    document.getElementById('progress-bar').style.width = '0%';
+    document.getElementById('progress-percent').textContent = '0%';
+    document.getElementById('transferred-bytes').textContent = `File: ${file.name} (${formatBytes(file.size)})`;
+    document.getElementById('transfer-modal').classList.add('active');
+
+    // --- Wait up to 8s for the data channel to open.
+    //     The WebView may have been paused during file picking causing the
+    //     signaling WebSocket to drop and WebRTC to need re-establishing.
+    //     8 seconds gives time for: signaling reconnect + WebRTC re-negotiation.
+    if (!forceRelay) {
+      const dcReady = await new Promise(resolve => {
+        const deadline = Date.now() + 8000;
+        const poll = () => {
+          const p = peers.get(sendFileState.targetPeerId);
+          if (p && p.dc && p.dc.readyState === 'open') return resolve(true);
+          if (Date.now() >= deadline) return resolve(false);
+          setTimeout(poll, 100);
+        };
+        poll();
+      });
+      console.log('DataChannel wait result:', dcReady ? 'open' : 'timed out — using relay');
+    }
+
+    // Re-read peer after await (it may have reconnected and re-established)
+    const freshPeer = peers.get(sendFileState.targetPeerId);
+
+    const badge = document.getElementById('connection-mode-badge');
+
+    if (freshPeer && freshPeer.dc && freshPeer.dc.readyState === 'open' && !forceRelay) {
+      sendFileState.useWebSocketRelay = false;
+      badge.textContent = 'Will use Direct P2P (0 Internet Data)';
+      badge.className = 'connection-mode-badge direct';
+
+      // Send meta information to receiver via WebRTC data channel
+      freshPeer.dc.send(JSON.stringify({
+        type: 'meta',
+        name: file.name,
+        size: file.size
+      }));
+    } else {
+      // Fallback: Send meta over WebSocket Signaling channel
+      sendFileState.useWebSocketRelay = true;
+      badge.textContent = 'Will use WebSocket Relay (Uses Internet Data)';
+      badge.className = 'connection-mode-badge relay';
+      showToast('P2P not ready — relaying via WebSocket...', 'info');
+
+      sendSignal(sendFileState.targetPeerId, {
+        type: 'ws-meta',
+        name: file.name,
+        size: file.size
+      });
     }
   });
   
@@ -1141,11 +1614,34 @@ function setupUIEventListeners() {
 
 function copyRoomLink() {
   const url = window.location.href;
-  navigator.clipboard.writeText(url).then(() => {
-    showToast('Room link copied to clipboard!');
-  }).catch(err => {
-    console.error('Failed to copy text: ', err);
-  });
+  const isCapacitor = !!window.Capacitor || (window.location.hostname === 'localhost' && !window.location.port);
+  
+  const writeToClipboard = (targetUrl) => {
+    navigator.clipboard.writeText(targetUrl).then(() => {
+      showToast('Room link copied to clipboard!');
+    }).catch(err => {
+      console.error('Failed to copy text: ', err);
+    });
+  };
+
+  if (qrMode === 'internet') {
+    writeToClipboard(`https://ajshare.pages.dev/#${roomId}`);
+  } else if (isCapacitor) {
+    fetch('http://localhost:8080/api/ip')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.ip) {
+          writeToClipboard(`http://${data.ip}:8080/#${roomId}`);
+        } else {
+          writeToClipboard(`http://192.168.43.1:8080/#${roomId}`);
+        }
+      })
+      .catch(() => {
+        writeToClipboard(`http://192.168.43.1:8080/#${roomId}`);
+      });
+  } else {
+    writeToClipboard(url);
+  }
 }
 
 function closeTransferModal() {
@@ -1201,16 +1697,43 @@ function showToast(message, type = 'success') {
 let qr = null;
 function generateQRCode() {
   const url = window.location.href;
+  const isCapacitor = !!window.Capacitor || (window.location.hostname === 'localhost' && !window.location.port);
   const canvas = document.getElementById('qr-code-canvas');
-  if (canvas) {
+  if (!canvas) return;
+
+  const drawQR = (targetUrl) => {
     qr = new QRious({
       element: canvas,
-      value: url,
+      value: targetUrl,
       size: 260,
       background: '#ffffff',
       foreground: '#0a0c16',
       level: 'H'
     });
+    const linkText = document.getElementById('qr-link-text');
+    if (linkText) {
+      linkText.textContent = targetUrl;
+    }
+  };
+
+  if (qrMode === 'internet') {
+    drawQR(`https://ajshare.pages.dev/#${roomId}`);
+  } else if (isCapacitor) {
+    fetch('http://localhost:8080/api/ip')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.ip) {
+          drawQR(`http://${data.ip}:8080/#${roomId}`);
+        } else {
+          drawQR(`http://192.168.43.1:8080/#${roomId}`);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch local IP, using fallback:', err);
+        drawQR(`http://192.168.43.1:8080/#${roomId}`);
+      });
+  } else {
+    drawQR(url);
   }
 }
 

@@ -66,18 +66,30 @@
             <span class="slider"></span>
           </label>
         </div>
+        <div class="relay-toggle-container" style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+          <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            Optimize Local Direct P2P (Bypass mDNS)
+          </label>
+          <button id="optimize-p2p-btn" class="btn btn-secondary btn-sm" style="min-height: unset; padding: 6px 12px; font-size: 11px;">Enable</button>
+        </div>
       </section>
 
       <!-- Screen 1.5: Invitation QR Code -->
       <section class="card qr-card">
-        <div class="qr-header">
+        <div class="qr-header" style="margin-bottom: 12px; text-align: center;">
           <h3>Quick Share</h3>
-          <p>Scan this code to join this room instantly</p>
+          <div class="qr-toggle-tabs">
+            <div class="qr-tab-slider"></div>
+            <button id="qr-tab-local" class="qr-tab active">Local (Hotspot/Wi-Fi)</button>
+            <button id="qr-tab-internet" class="qr-tab">Internet (Remote)</button>
+          </div>
         </div>
         <div class="qr-body">
           <div class="qr-container">
             <canvas id="qr-code-canvas"></canvas>
           </div>
+          <div class="qr-link-display" id="qr-link-text">Loading link...</div>
         </div>
       </section>
     </div>
