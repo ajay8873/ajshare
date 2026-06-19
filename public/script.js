@@ -597,13 +597,13 @@ function rewriteSdpOrCandidate(signal) {
     const typ = parts[7];
     const ip  = parts[4];
 
-    // ── Case 1: mDNS host candidate (e.g. d7a3b1.local 50443 typ host) ──────
-    // Chrome hides the local IP with a .local mDNS alias, but the PORT is real.
-    // Replace the .local alias with the actual LAN IP, keeping the port intact.
-    if (typ === 'host' && ip && ip.endsWith('.local')) {
+    // ── Case 1: Host candidate ──────
+    // Replace the gathered host IP (which might be an mDNS alias or an inactive Wi-Fi IP)
+    // with the actual active LAN/Hotspot IP, keeping the port intact.
+    if (typ === 'host' && ip) {
       parts[4] = localIpAddress;
       const rewritten = parts.join(' ');
-      console.log('Rewrote mDNS candidate to LAN IP:', rewritten);
+      console.log('Rewrote host candidate to LAN IP:', rewritten);
       return rewritten;
     }
 
