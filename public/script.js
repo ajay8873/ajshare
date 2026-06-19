@@ -83,10 +83,9 @@ function connectSignaling() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   let host = window.location.host;
   
-  // For local development on file:// or arbitrary hosts, point to localhost:8787, otherwise use the deployed production worker
-  if (!host || host.startsWith('127.0.0.1') || host.startsWith('localhost') || window.location.protocol === 'file:') {
-    host = 'localhost:8787';
-  } else {
+  // Use current host for websocket signaling server.
+  // Fall back to the deployed production worker if opening index.html directly from file:// protocol.
+  if (!host || window.location.protocol === 'file:') {
     host = 'ajshare.mehtaajay8873.workers.dev';
   }
   
@@ -180,9 +179,17 @@ function initiatePeerConnection(peerId) {
     dc: null,
     name: friendlyName,
     deviceType: 'Device',
-    candidateQueue: [] // Queue candidates until remote desc is set
+    candidateQueue: [], // Queue candidates until remote desc is set
+    remoteDescSet: false
   };
   peers.set(peerId, peerInfo);
+  
+  pc.oniceconnectionstatechange = () => {
+    console.log(`ICE Connection State with ${peerId}: ${pc.iceConnectionState}`);
+  };
+  pc.onconnectionstatechange = () => {
+    console.log(`Connection State with ${peerId}: ${pc.connectionState}`);
+  };
   
   // Create RTCDataChannel
   const dc = pc.createDataChannel('file-transfer', { ordered: true });
@@ -218,9 +225,17 @@ function handleIncomingSignal(peerId, signal) {
       dc: null,
       name: friendlyName,
       deviceType: 'Device',
-      candidateQueue: [] // Queue candidates until remote desc is set
+      candidateQueue: [], // Queue candidates until remote desc is set
+      remoteDescSet: false
     };
     peers.set(peerId, peerInfo);
+    
+    pc.oniceconnectionstatechange = () => {
+      console.log(`ICE Connection State with ${peerId}: ${pc.iceConnectionState}`);
+    };
+    pc.onconnectionstatechange = () => {
+      console.log(`Connection State with ${peerId}: ${pc.connectionState}`);
+    };
     
     pc.onicecandidate = (event) => {
       if (event.candidate) {
@@ -245,6 +260,7 @@ function handleIncomingSignal(peerId, signal) {
       .then(answer => pc.setLocalDescription(answer))
       .then(() => {
         sendSignal(peerId, { type: 'answer', sdp: pc.localDescription.sdp });
+        peerInfo.remoteDescSet = true;
         // Process any queued candidates
         processCandidateQueue(peerInfo);
       })
@@ -252,13 +268,14 @@ function handleIncomingSignal(peerId, signal) {
   } else if (signal.type === 'answer') {
     pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }))
       .then(() => {
+        peerInfo.remoteDescSet = true;
         // Process any queued candidates
         processCandidateQueue(peerInfo);
       })
       .catch(err => console.error('Error setting remote description answer:', err));
   } else if (signal.type === 'candidate') {
     const candidate = new RTCIceCandidate(signal.candidate);
-    if (pc.remoteDescription) {
+    if (peerInfo.remoteDescSet) {
       pc.addIceCandidate(candidate)
         .catch(err => console.error('Error adding ICE candidate:', err));
     } else {
