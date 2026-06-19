@@ -816,7 +816,7 @@ function sendNextChunks() {
   // Pause reading from disk if our memory queue is full or data channel buffer is saturated
   if (dc.bufferedAmount >= BUFFER_THRESHOLD || 
       (sendFileState.readIndex - sendFileState.sendIndex) >= MAX_CONCURRENT_READS) {
-    setTimeout(sendNextChunks, 10);
+    setTimeout(sendNextChunks, 2);
     return;
   }
   
@@ -861,7 +861,7 @@ function sendOrderedChunks() {
       if (dc.bufferedAmount >= BUFFER_THRESHOLD) {
         // Schedule a poll check shortly to resume sending when buffer drains
         isSendingChunks = false;
-        setTimeout(sendOrderedChunks, 10);
+        setTimeout(sendOrderedChunks, 2);
         return;
       }
       
@@ -936,7 +936,7 @@ function sendNextChunksWebSocket() {
     return;
   }
   
-  const WS_CHUNK_SIZE = 65536; // 64KB chunks for WebSocket
+  const WS_CHUNK_SIZE = 262144; // 256KB chunks for WebSocket
   const MAX_CONCURRENT_READS = 16;
   
   while (sendFileState.offset < file.size && 
@@ -975,13 +975,13 @@ function sendOrderedChunksWebSocket() {
       return;
     }
     
-    const WS_BUFFER_THRESHOLD = 262144; // 256KB buffer threshold
+    const WS_BUFFER_THRESHOLD = 1048576; // 1MB buffer threshold
     
     while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
       if (socket.bufferedAmount >= WS_BUFFER_THRESHOLD) {
         // Schedule check shortly and pause sending
         isSendingWebSocket = false;
-        setTimeout(sendOrderedChunksWebSocket, 5);
+        setTimeout(sendOrderedChunksWebSocket, 2);
         return;
       }
       
