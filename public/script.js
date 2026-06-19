@@ -390,7 +390,8 @@ function initiatePeerConnection(peerId) {
     name: friendlyName,
     deviceType: deviceType,
     candidateQueue: [], // Queue candidates until remote desc is set
-    remoteDescSet: false
+    remoteDescSet: false,
+    webrtcFailed: false
   };
   peers.set(peerId, peerInfo);
   
@@ -437,6 +438,9 @@ function initiatePeerConnection(peerId) {
 
 function handleIncomingSignal(peerId, signal) {
   let peerInfo = peers.get(peerId);
+  if (peerInfo) {
+    peerInfo.webrtcFailed = false;
+  }
   
   if (!peerInfo) {
     // Callee side: First time hearing from this peer
@@ -449,7 +453,8 @@ function handleIncomingSignal(peerId, signal) {
       name: friendlyName,
       deviceType: 'Device',
       candidateQueue: [], // Queue candidates until remote desc is set
-      remoteDescSet: false
+      remoteDescSet: false,
+      webrtcFailed: false
     };
     peers.set(peerId, peerInfo);
     
@@ -516,7 +521,7 @@ function handleIncomingSignal(peerId, signal) {
     const parts = signal.candidate.candidate.split(' ');
     if (parts.length >= 8 && parts[7] === 'host') {
       const remoteIp = parts[4];
-      if (remoteIp && !remoteIp.endsWith('.local') && !localIpAddress) {
+      if (remoteIp && !remoteIp.endsWith('.local') && !localIpAddress && window.location.protocol !== 'https:') {
         console.log(`Detected remote host raw IP: ${remoteIp}. Querying for local IP...`);
         fetch(`http://${remoteIp}:8080/api/peer-ip`)
           .then(res => res.json())
@@ -1382,8 +1387,13 @@ function updatePeerConnectionBadge(peerId) {
     badgeEl.textContent = 'Direct P2P (Free 0-Data)';
     badgeEl.className = 'peer-connection-badge direct';
   } else {
-    badgeEl.textContent = 'Connecting WebRTC P2P...';
-    badgeEl.className = 'peer-connection-badge relay';
+    if (peerInfo && peerInfo.webrtcFailed) {
+      badgeEl.textContent = 'Remote (Relay Ready)';
+      badgeEl.className = 'peer-connection-badge relay';
+    } else {
+      badgeEl.textContent = 'Connecting WebRTC P2P...';
+      badgeEl.className = 'peer-connection-badge relay';
+    }
   }
 }
 
@@ -1421,6 +1431,7 @@ function closePeerConnection(peerId) {
       try { peerInfo.pc.close(); } catch(e){}
       peerInfo.pc = null;
     }
+    peerInfo.webrtcFailed = true;
     peerInfo.remoteDescSet = false;
     peerInfo.candidateQueue = [];
   }
