@@ -1673,35 +1673,12 @@ async function enableLocalIPs() {
 }
 
 function copyRoomLink() {
-  const url = window.location.href;
-  const isCapacitor = !!window.Capacitor || (window.location.hostname === 'localhost' && !window.location.port);
-  
-  const writeToClipboard = (targetUrl) => {
-    navigator.clipboard.writeText(targetUrl).then(() => {
-      showToast('Room link copied to clipboard!');
-    }).catch(err => {
-      console.error('Failed to copy text: ', err);
-    });
-  };
-
-  if (qrMode === 'internet') {
-    writeToClipboard(`https://ajshare.pages.dev/#${roomId}`);
-  } else if (isCapacitor) {
-    fetch('http://localhost:8080/api/ip')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.ip) {
-          writeToClipboard(`http://${data.ip}:8080/#${roomId}`);
-        } else {
-          writeToClipboard(`http://192.168.43.1:8080/#${roomId}`);
-        }
-      })
-      .catch(() => {
-        writeToClipboard(`http://192.168.43.1:8080/#${roomId}`);
-      });
-  } else {
-    writeToClipboard(url);
-  }
+  const targetUrl = `https://ajshare.pages.dev/#${roomId}`;
+  navigator.clipboard.writeText(targetUrl).then(() => {
+    showToast('Room link copied to clipboard!');
+  }).catch(err => {
+    console.error('Failed to copy text: ', err);
+  });
 }
 
 function closeTransferModal() {
@@ -1756,44 +1733,22 @@ function showToast(message, type = 'success') {
 // QR Code generation
 let qr = null;
 function generateQRCode() {
-  const url = window.location.href;
-  const isCapacitor = !!window.Capacitor || (window.location.hostname === 'localhost' && !window.location.port);
   const canvas = document.getElementById('qr-code-canvas');
   if (!canvas) return;
 
-  const drawQR = (targetUrl) => {
-    qr = new QRious({
-      element: canvas,
-      value: targetUrl,
-      size: 260,
-      background: '#ffffff',
-      foreground: '#0a0c16',
-      level: 'H'
-    });
-    const linkText = document.getElementById('qr-link-text');
-    if (linkText) {
-      linkText.textContent = targetUrl;
-    }
-  };
-
-  if (qrMode === 'internet') {
-    drawQR(`https://ajshare.pages.dev/#${roomId}`);
-  } else if (isCapacitor) {
-    fetch('http://localhost:8080/api/ip')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.ip) {
-          drawQR(`http://${data.ip}:8080/#${roomId}`);
-        } else {
-          drawQR(`http://192.168.43.1:8080/#${roomId}`);
-        }
-      })
-      .catch(err => {
-        console.error('Failed to fetch local IP, using fallback:', err);
-        drawQR(`http://192.168.43.1:8080/#${roomId}`);
-      });
-  } else {
-    drawQR(url);
+  const targetUrl = `https://ajshare.pages.dev/#${roomId}`;
+  
+  qr = new QRious({
+    element: canvas,
+    value: targetUrl,
+    size: 260,
+    background: '#ffffff',
+    foreground: '#0a0c16',
+    level: 'H'
+  });
+  const linkText = document.getElementById('qr-link-text');
+  if (linkText) {
+    linkText.textContent = targetUrl;
   }
 }
 
