@@ -217,7 +217,13 @@ function initiatePeerConnection(peerId) {
   
   pc.onicecandidate = (event) => {
     if (event.candidate) {
-      sendSignal(peerId, { type: 'candidate', candidate: event.candidate });
+      const candidateInit = {
+        candidate: event.candidate.candidate,
+        sdpMid: event.candidate.sdpMid,
+        sdpMLineIndex: event.candidate.sdpMLineIndex,
+        usernameFragment: event.candidate.usernameFragment
+      };
+      sendSignal(peerId, { type: 'candidate', candidate: candidateInit });
     }
   };
   
@@ -258,7 +264,13 @@ function handleIncomingSignal(peerId, signal) {
     
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        sendSignal(peerId, { type: 'candidate', candidate: event.candidate });
+        const candidateInit = {
+          candidate: event.candidate.candidate,
+          sdpMid: event.candidate.sdpMid,
+          sdpMLineIndex: event.candidate.sdpMLineIndex,
+          usernameFragment: event.candidate.usernameFragment
+        };
+        sendSignal(peerId, { type: 'candidate', candidate: candidateInit });
       }
     };
     
@@ -293,13 +305,12 @@ function handleIncomingSignal(peerId, signal) {
       })
       .catch(err => console.error('Error setting remote description answer:', err));
   } else if (signal.type === 'candidate') {
-    const candidate = new RTCIceCandidate(signal.candidate);
     if (peerInfo.remoteDescSet) {
-      pc.addIceCandidate(candidate)
+      pc.addIceCandidate(signal.candidate)
         .catch(err => console.error('Error adding ICE candidate:', err));
     } else {
       // Queue candidate
-      peerInfo.candidateQueue.push(candidate);
+      peerInfo.candidateQueue.push(signal.candidate);
     }
   }
 }
