@@ -217,6 +217,7 @@ function initiatePeerConnection(peerId) {
   
   pc.onicecandidate = (event) => {
     if (event.candidate) {
+      console.log(`Local ICE candidate gathered: ${event.candidate.candidate}`);
       const candidateInit = {
         candidate: event.candidate.candidate,
         sdpMid: event.candidate.sdpMid,
@@ -264,6 +265,7 @@ function handleIncomingSignal(peerId, signal) {
     
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log(`Local ICE candidate gathered: ${event.candidate.candidate}`);
         const candidateInit = {
           candidate: event.candidate.candidate,
           sdpMid: event.candidate.sdpMid,
@@ -305,6 +307,7 @@ function handleIncomingSignal(peerId, signal) {
       })
       .catch(err => console.error('Error setting remote description answer:', err));
   } else if (signal.type === 'candidate') {
+    console.log(`Remote ICE candidate received: ${signal.candidate.candidate}`);
     if (peerInfo.remoteDescSet) {
       pc.addIceCandidate(signal.candidate)
         .catch(err => console.error('Error adding ICE candidate:', err));
