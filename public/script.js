@@ -146,8 +146,8 @@ function handleSignalingMessage(msg) {
       
     case 'peer-joined':
       showToast('New peer entered the room', 'info');
-      // Set up peer connection
-      initiatePeerConnection(msg.peerId);
+      // Connection will be initiated by the newly joined peer via the 'welcome' packet.
+      // The existing peer just waits to receive the incoming offer signal.
       break;
       
     case 'peer-left':
