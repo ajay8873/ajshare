@@ -834,17 +834,19 @@ function sendNextChunks() {
     const slice = file.slice(currentOffset, currentOffset + CHUNK_SIZE);
     sendFileState.offset += slice.size;
     
-    slice.arrayBuffer()
-      .then((buffer) => {
-        sendFileState.activeReads--;
-        sendFileState.readQueue.set(currentIndex, buffer);
-        sendOrderedChunks();
-      })
-      .catch((err) => {
-        console.error('File read error:', err);
-        sendFileState.activeReads--;
-        cancelActiveTransfer();
-      });
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const buffer = event.target.result;
+      sendFileState.activeReads--;
+      sendFileState.readQueue.set(currentIndex, buffer);
+      sendOrderedChunks();
+    };
+    reader.onerror = (err) => {
+      console.error('File read error:', err);
+      sendFileState.activeReads--;
+      cancelActiveTransfer();
+    };
+    reader.readAsArrayBuffer(slice);
   }
 }
 
@@ -951,17 +953,19 @@ function sendNextChunksWebSocket() {
     const slice = file.slice(currentOffset, currentOffset + WS_CHUNK_SIZE);
     sendFileState.offset += slice.size;
     
-    slice.arrayBuffer()
-      .then((buffer) => {
-        sendFileState.activeReads--;
-        sendFileState.readQueue.set(currentIndex, buffer);
-        sendOrderedChunksWebSocket();
-      })
-      .catch((err) => {
-        console.error('File read error:', err);
-        sendFileState.activeReads--;
-        cancelActiveTransfer();
-      });
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const buffer = event.target.result;
+      sendFileState.activeReads--;
+      sendFileState.readQueue.set(currentIndex, buffer);
+      sendOrderedChunksWebSocket();
+    };
+    reader.onerror = (err) => {
+      console.error('File read error:', err);
+      sendFileState.activeReads--;
+      cancelActiveTransfer();
+    };
+    reader.readAsArrayBuffer(slice);
   }
 }
 
