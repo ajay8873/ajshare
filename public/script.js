@@ -315,7 +315,9 @@ function handleSignalingMessage(msg) {
       
     case 'signal':
       const sig = msg.signal;
+      console.log(`Received signal type "${sig.type}" from peer ${msg.sender}`);
       if (sig.type === 'ws-meta') {
+        console.log('Handling incoming ws-meta signal, showing accept modal...');
         receiveFileState = {
           fileName: sig.name,
           fileSize: sig.size,
@@ -337,12 +339,15 @@ function handleSignalingMessage(msg) {
         document.getElementById('incoming-file-size').textContent = formatBytes(sig.size);
         document.getElementById('incoming-modal').classList.add('active');
       } else if (sig.type === 'ws-accept') {
+        console.log('Peer accepted WebSocket relay. Starting transmission...');
         // Callee accepted our WebSocket Relay request!
         startFileTransmissionWebSocket();
       } else if (sig.type === 'ws-decline') {
+        console.log('Peer declined WebSocket relay.');
         showToast('Peer declined the file transfer', 'danger');
         closeTransferModal();
       } else if (sig.type === 'ws-cancel') {
+        console.log('WebSocket relay transfer was cancelled by peer.');
         showToast('Transfer was cancelled by peer', 'danger');
         resetAllTransferStates();
         closeTransferModal();
@@ -1648,7 +1653,7 @@ async function enableLocalIPs() {
       badge.textContent = 'Will use WebSocket Relay (Uses Internet Data)';
       badge.className = 'connection-mode-badge relay';
       showToast('P2P not ready — relaying via WebSocket...', 'info');
-
+      console.log('Sending ws-meta signal to target peer:', sendFileState.targetPeerId);
       sendSignal(sendFileState.targetPeerId, {
         type: 'ws-meta',
         name: file.name,
