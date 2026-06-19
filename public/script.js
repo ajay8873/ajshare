@@ -3,7 +3,7 @@
 
 // Configuration
 const CHUNK_SIZE = 262144; // 256KB for maximum speed while maintaining cross-browser compatibility
-const BUFFER_THRESHOLD = 8388608; // 8MB backpressure threshold to keep the pipe saturated
+const BUFFER_THRESHOLD = 2097152; // 2MB backpressure threshold to prevent SCTP congestion collapse
 const PING_INTERVAL = 30000; // 30 seconds
 
 // Application State
@@ -392,7 +392,7 @@ function processCandidateQueue(peerInfo) {
 
 function setupDataChannel(peerId, dc) {
   dc.binaryType = 'arraybuffer';
-  dc.bufferedAmountLowThreshold = BUFFER_THRESHOLD;
+  dc.bufferedAmountLowThreshold = 262144; // 256KB low threshold to keep buffer filled incrementally
   
   dc.onopen = () => {
     const card = document.getElementById(`peer-${peerId}`);
@@ -817,6 +817,53 @@ function updateProgressUI(current, total, state, isSender) {
   } else {
     document.getElementById('transfer-speed').textContent = '0 KB/s';
     document.getElementById('time-remaining').textContent = 'Calculating...';
+  }
+  
+  updateLiveConnectionModeBadge(isSender);
+}
+
+async function updateLiveConnectionModeBadge(isSender) {
+  const badge = document.getElementById('connection-mode-badge');
+  if (!badge) return;
+
+  if (sendFileState.useWebSocketRelay || receiveFileState.useWebSocketRelay) {
+    badge.textContent = 'WebSocket Relay (Uses Internet Data)';
+    badge.className = 'connection-mode-badge relay';
+    return;
+  }
+
+  const peerId = isSender ? sendFileState.targetPeerId : receiveFileState.senderPeerId;
+  const peerInfo = peers.get(peerId);
+  if (!peerInfo || !peerInfo.pc) return;
+
+  try {
+    const stats = await peerInfo.pc.getStats();
+    let localType = '';
+    let remoteType = '';
+    
+    stats.forEach(report => {
+      if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.nominated) {
+        const localCand = stats.get(report.localCandidateId);
+        const remoteCand = stats.get(report.remoteCandidateId);
+        if (localCand && remoteCand) {
+          localType = localCand.candidateType;
+          remoteType = remoteCand.candidateType;
+        }
+      }
+    });
+
+    if (localType === 'relay' || remoteType === 'relay') {
+      badge.textContent = 'TURN Relay (Uses Internet Data)';
+      badge.className = 'connection-mode-badge relay';
+    } else if (localType === 'host' && remoteType === 'host') {
+      badge.textContent = 'Direct Local P2P (0 Internet Data)';
+      badge.className = 'connection-mode-badge direct';
+    } else {
+      badge.textContent = 'Direct P2P (Internet, Uses Data)';
+      badge.className = 'connection-mode-badge relay';
+    }
+  } catch (e) {
+    console.warn('Error fetching connection stats:', e);
   }
 }
 
