@@ -83,11 +83,9 @@ function connectSignaling() {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   let host = window.location.host;
   
-  // For local development on file:// or arbitrary hosts, point to localhost:8787, otherwise use the deployed production worker
+  // For local development on file:// or arbitrary hosts, point to localhost:8787, otherwise use the current host serving the page
   if (!host || host.startsWith('127.0.0.1') || host.startsWith('localhost') || window.location.protocol === 'file:') {
     host = 'localhost:8787';
-  } else {
-    host = 'ajshare.mehtaajay8873.workers.dev';
   }
   
   const wsUrl = `${protocol}//${host}/ws?room=${roomId}`;
