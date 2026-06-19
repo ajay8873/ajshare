@@ -579,15 +579,18 @@ function sendNextChunksWebSocket() {
     return;
   }
   
+  const WS_CHUNK_SIZE = 131072; // 128KB chunks for WebSocket
+  const WS_BUFFER_THRESHOLD = 1048576; // 1MB buffer threshold
+  
   while (sendFileState.offset < file.size) {
     // Check if WebSocket bufferedAmount is too high to prevent backpressure issues
-    if (socket.bufferedAmount > BUFFER_THRESHOLD) {
-      // Wait and try again shortly
-      setTimeout(sendNextChunksWebSocket, 50);
+    if (socket.bufferedAmount > WS_BUFFER_THRESHOLD) {
+      // Check again very quickly (5ms) to saturate the connection
+      setTimeout(sendNextChunksWebSocket, 5);
       return;
     }
     
-    const slice = file.slice(sendFileState.offset, sendFileState.offset + CHUNK_SIZE);
+    const slice = file.slice(sendFileState.offset, sendFileState.offset + WS_CHUNK_SIZE);
     
     const reader = new FileReader();
     reader.onload = (e) => {
