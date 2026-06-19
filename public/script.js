@@ -1167,7 +1167,7 @@ function renderHistory() {
       <div class="history-left">
         <div class="history-icon-badge ${typeClass}">${iconChar}</div>
         <div class="history-details">
-          <h4>${escapeHTML(item.name)}</h4>
+          <h4 class="history-file-name" style="cursor: pointer; text-decoration: underline; text-underline-offset: 2px;">${escapeHTML(item.name)}</h4>
           <p>${formatBytes(item.size)} • ${item.timestamp}</p>
         </div>
       </div>
@@ -1175,6 +1175,18 @@ function renderHistory() {
         <span class="history-status ${item.status}">${item.status}</span>
       </div>
     `;
+
+    const fileNameEl = row.querySelector('.history-file-name');
+    fileNameEl.addEventListener('click', () => {
+      if (item.status === 'completed') {
+        if (item.type === 'received') {
+          showToast(`Look in your browser's "Downloads" folder for this file.`, 'info');
+        } else {
+          showToast(`This file was sent from your local device.`, 'info');
+        }
+      }
+    });
+
     list.appendChild(row);
   });
 }
