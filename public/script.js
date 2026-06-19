@@ -374,20 +374,21 @@ const rtcConfig = {
 };
 
 function initiatePeerConnection(peerId) {
-  if (peers.has(peerId)) {
-    const peer = peers.get(peerId);
-    if (peer.dc && (peer.dc.readyState === 'open' || peer.dc.readyState === 'connecting')) return;
-    removePeer(peerId);
+  const existingPeer = peers.get(peerId);
+  if (existingPeer) {
+    if (existingPeer.dc && (existingPeer.dc.readyState === 'open' || existingPeer.dc.readyState === 'connecting')) return;
+    closePeerConnection(peerId);
   }
   
   const pc = new RTCPeerConnection(rtcConfig);
-  const friendlyName = generateFriendlyName();
+  const friendlyName = existingPeer ? existingPeer.name : generateFriendlyName();
+  const deviceType = existingPeer ? existingPeer.deviceType : 'Device';
   
   const peerInfo = {
     pc: pc,
     dc: null,
     name: friendlyName,
-    deviceType: 'Device',
+    deviceType: deviceType,
     candidateQueue: [], // Queue candidates until remote desc is set
     remoteDescSet: false
   };
@@ -396,13 +397,13 @@ function initiatePeerConnection(peerId) {
   pc.oniceconnectionstatechange = () => {
     console.log(`ICE Connection State with ${peerId}: ${pc.iceConnectionState}`);
     if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
-      removePeer(peerId);
+      handleWebRTCFailure(peerId);
     }
   };
   pc.onconnectionstatechange = () => {
     console.log(`Connection State with ${peerId}: ${pc.connectionState}`);
     if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-      removePeer(peerId);
+      handleWebRTCFailure(peerId);
     }
   };
   
@@ -455,13 +456,13 @@ function handleIncomingSignal(peerId, signal) {
     pc.oniceconnectionstatechange = () => {
       console.log(`ICE Connection State with ${peerId}: ${pc.iceConnectionState}`);
       if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
-        removePeer(peerId);
+        handleWebRTCFailure(peerId);
       }
     };
     pc.onconnectionstatechange = () => {
       console.log(`Connection State with ${peerId}: ${pc.connectionState}`);
       if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-        removePeer(peerId);
+        handleWebRTCFailure(peerId);
       }
     };
     
@@ -588,17 +589,7 @@ function setupDataChannel(peerId, dc) {
   
   dc.onclose = () => {
     console.log(`WebRTC Data Channel with ${peerId} closed.`);
-    const peer = peers.get(peerId);
-    // Keep the peer alive if they are selecting a file OR if they are our transfer target
-    if (peer && (peer.isSelectingFile || sendFileState.targetPeerId === peerId)) {
-      const card = document.getElementById(`peer-${peerId}`);
-      if (card) {
-        card.classList.remove('active');
-      }
-      updatePeerConnectionBadge(peerId);
-    } else {
-      removePeer(peerId);
-    }
+    handleWebRTCFailure(peerId);
   };
   
   dc.onmessage = (event) => {
@@ -1345,21 +1336,25 @@ function addPeerCardToGrid(peerId, name) {
     emptyState.style.display = 'none';
   }
   
-  const card = document.createElement('div');
-  card.className = 'peer-card';
-  card.id = `peer-${peerId}`;
+  let card = document.getElementById(`peer-${peerId}`);
+  if (!card) {
+    card = document.createElement('div');
+    card.className = 'peer-card';
+    card.id = `peer-${peerId}`;
+    grid.appendChild(card);
+  }
   
+  card.className = 'peer-card';
   card.innerHTML = `
     <div class="peer-avatar">${name.substring(0, 2).toUpperCase()}</div>
     <div class="peer-name">${name}</div>
     <div class="peer-desc">Click card to send file</div>
   `;
   
-  card.addEventListener('click', () => {
+  card.onclick = () => {
     selectAndSendFile(peerId);
-  });
+  };
   
-  grid.appendChild(card);
   updatePeerConnectionBadge(peerId);
   updatePeerCount();
 }
@@ -1413,6 +1408,32 @@ function removePeer(peerId) {
       emptyState.style.display = 'flex';
     }
   }
+}
+
+function closePeerConnection(peerId) {
+  const peerInfo = peers.get(peerId);
+  if (peerInfo) {
+    if (peerInfo.dc) {
+      try { peerInfo.dc.close(); } catch(e){}
+      peerInfo.dc = null;
+    }
+    if (peerInfo.pc) {
+      try { peerInfo.pc.close(); } catch(e){}
+      peerInfo.pc = null;
+    }
+    peerInfo.remoteDescSet = false;
+    peerInfo.candidateQueue = [];
+  }
+  const card = document.getElementById(`peer-${peerId}`);
+  if (card) {
+    card.classList.remove('active');
+  }
+  updatePeerConnectionBadge(peerId);
+}
+
+function handleWebRTCFailure(peerId) {
+  console.log(`Handling WebRTC failure for peer: ${peerId}`);
+  closePeerConnection(peerId);
 }
 
 function updatePeerCount() {
@@ -1539,7 +1560,7 @@ async function enableLocalIPs() {
     // OR if we are forcing relay mode.
     if ((!existingPeer || !existingPeer.dc || existingPeer.dc.readyState !== 'open') && !forceRelay) {
       console.log('Direct WebRTC Data Channel not open. Re-initiating peer connection...');
-      removePeer(sendFileState.targetPeerId);
+      closePeerConnection(sendFileState.targetPeerId);
       initiatePeerConnection(sendFileState.targetPeerId);
     } else {
       console.log('Direct WebRTC Data Channel is already open and active. Reusing existing connection.');
