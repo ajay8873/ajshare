@@ -181,8 +181,8 @@ const rtcConfig = {
         'turn:openrelay.metered.ca:443?transport=tcp',
         'turns:openrelay.metered.ca:443'
       ],
-      username: 'openrelay',
-      credential: 'openrelay'
+      username: '3b5422fb36b2ee058d2be289',
+      credential: 'NqAD8YKrV056XGvi'
     }
   ]
 };
