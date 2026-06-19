@@ -508,6 +508,27 @@ function handleIncomingSignal(peerId, signal) {
       .catch(err => console.error('Error setting remote description answer:', err));
   } else if (signal.type === 'candidate') {
     console.log(`Remote ICE candidate received: ${signal.candidate.candidate}`);
+    
+    // Extract remote IP if it's a host candidate to dynamically discover our own local IP
+    const parts = signal.candidate.candidate.split(' ');
+    if (parts.length >= 8 && parts[7] === 'host') {
+      const remoteIp = parts[4];
+      if (remoteIp && !remoteIp.endsWith('.local') && !localIpAddress) {
+        console.log(`Detected remote host raw IP: ${remoteIp}. Querying for local IP...`);
+        fetch(`http://${remoteIp}:8080/api/peer-ip`)
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.ip) {
+              localIpAddress = data.ip;
+              console.log(`PC dynamically resolved its active local IP as: ${localIpAddress}`);
+            }
+          })
+          .catch(err => {
+            console.warn('Failed to query remote local server for peer-ip:', err);
+          });
+      }
+    }
+
     if (peerInfo.remoteDescSet) {
       pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
         .catch(err => console.error('Error adding ICE candidate:', err));
