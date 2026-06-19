@@ -172,14 +172,15 @@ function handleSignalingMessage(msg) {
 // RTCPeerConnection creation and management
 const rtcConfig = {
   iceServers: [
+    { urls: 'stun:global.relay.metered.ca:80' },
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     {
       urls: [
-        'turn:openrelay.metered.ca:80',
-        'turn:openrelay.metered.ca:443',
-        'turn:openrelay.metered.ca:443?transport=tcp',
-        'turns:openrelay.metered.ca:443'
+        'turn:global.relay.metered.ca:80',
+        'turn:global.relay.metered.ca:443',
+        'turn:global.relay.metered.ca:443?transport=tcp',
+        'turns:global.relay.metered.ca:443'
       ],
       username: '3b5422fb36b2ee058d2be289',
       credential: 'NqAD8YKrV056XGvi'
