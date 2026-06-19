@@ -176,12 +176,13 @@ const rtcConfig = {
     { urls: 'stun:stun1.l.google.com:19302' },
     {
       urls: [
-        'turn:relay.metered.ca:80',
-        'turn:relay.metered.ca:443',
-        'turn:relay.metered.ca:443?transport=tcp'
+        'turn:openrelay.metered.ca:80',
+        'turn:openrelay.metered.ca:443',
+        'turn:openrelay.metered.ca:443?transport=tcp',
+        'turns:openrelay.metered.ca:443'
       ],
-      username: 'metered',
-      credential: 'Password123'
+      username: 'openrelay',
+      credential: 'openrelay'
     }
   ]
 };
