@@ -35,14 +35,27 @@
         </button>
       </div>
     </div>
-    <div class="room-join-container" style="display: flex; align-items: center; gap: 8px;">
-      <span class="room-label">Join:</span>
-      <input type="text" id="join-room-input" placeholder="Room ID" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 6px 14px; color: #fff; font-family: inherit; font-size: 13px; outline: none; width: 100px; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
-      <button id="join-room-btn" class="btn btn-primary btn-sm" style="min-height: unset; padding: 6px 14px; font-size: 13px; border-radius: 20px;">Join</button>
-    </div>
   </header>
 
   <main class="app-main">
+    <!-- Join Room & Download App Container -->
+    <section class="card join-room-card">
+      <div class="title-group">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg>
+        <span>Connect to Another Room</span>
+      </div>
+      <div class="join-input-group">
+        <input type="text" id="join-room-input" placeholder="Enter Room ID">
+        <button id="join-room-btn" class="btn btn-primary">Join Room</button>
+      </div>
+      <div class="apk-download-group">
+        <a href="/ajshare.apk" download class="btn btn-secondary btn-sm">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Download APK
+        </a>
+      </div>
+    </section>
+
     <div class="top-row">
       <!-- Screen 1: Peer discovery & Status -->
       <section class="card status-card">

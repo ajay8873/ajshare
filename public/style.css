@@ -1164,4 +1164,114 @@ body {
   user-select: all;
 }
 
+/* Join Room Card */
+.join-room-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  flex-wrap: wrap;
+}
+
+.join-room-card .title-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-grow: 1;
+}
+
+.join-room-card .title-group span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.join-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.join-input-group input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 8px 16px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  width: 140px;
+  transition: var(--transition-smooth);
+}
+
+.join-input-group input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 8px var(--primary-glow);
+}
+
+.join-input-group button {
+  padding: 8px 18px;
+  font-size: 13px;
+  border-radius: 20px;
+  min-height: unset;
+}
+
+.apk-download-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  padding-left: 16px;
+  margin-left: 8px;
+}
+
+.apk-download-group a {
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  .join-room-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 16px;
+  }
+  
+  .join-room-card .title-group {
+    justify-content: center;
+  }
+  
+  .join-input-group {
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .join-input-group input {
+    flex-grow: 1;
+  }
+  
+  .apk-download-group {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-left: 0;
+    padding-top: 12px;
+    margin-left: 0;
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .apk-download-group a {
+    width: 100%;
+  }
+}
+
 
