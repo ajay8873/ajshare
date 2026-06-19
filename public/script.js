@@ -57,6 +57,20 @@ function getDeviceType() {
   return 'Laptop';
 }
 
+// Register Service Worker for streaming
+let serviceWorkerRegistration = null;
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js')
+    .then(reg => {
+      serviceWorkerRegistration = reg;
+      console.log('Service Worker registered successfully');
+    })
+    .catch(err => {
+      console.warn('Service Worker registration failed:', err);
+    });
+}
+
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   setupRoom();
@@ -381,7 +395,9 @@ function handleDataChannelMessage(peerId, data) {
             senderPeerId: peerId,
             startTime: null,
             lastBytesReceived: 0,
-            lastTime: null
+            lastTime: null,
+            streamId: Math.random().toString(36).substring(2, 15), // Unique ID for Service Worker stream
+            useStream: false
           };
           
           // Display accept modal
@@ -424,8 +440,19 @@ function handleDataChannelMessage(peerId, data) {
       document.getElementById('transfer-modal').classList.add('active');
     }
     
-    receiveFileState.chunks.push(data);
     receiveFileState.receivedSize += data.byteLength;
+    
+    if (receiveFileState.useStream && navigator.serviceWorker && navigator.serviceWorker.controller) {
+      // Feed chunk directly to Service Worker stream
+      navigator.serviceWorker.controller.postMessage({
+        type: 'WRITE_CHUNK',
+        streamId: receiveFileState.streamId,
+        chunk: data
+      });
+    } else {
+      // Fallback: Buffer in memory
+      receiveFileState.chunks.push(data);
+    }
     
     updateProgressUI(receiveFileState.receivedSize, receiveFileState.fileSize, receiveFileState, false);
     
@@ -519,20 +546,31 @@ function sendNextChunks() {
 function finalizeReceivedFile() {
   showToast('File received successfully!', 'success');
   
-  const blob = new Blob(receiveFileState.chunks);
-  const url = URL.createObjectURL(blob);
-  
-  // Trigger instant direct browser download
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = receiveFileState.fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  if (receiveFileState.useStream && navigator.serviceWorker && navigator.serviceWorker.controller) {
+    // Close the stream in Service Worker
+    navigator.serviceWorker.controller.postMessage({
+      type: 'CLOSE_STREAM',
+      streamId: receiveFileState.streamId
+    });
+  } else {
+    // Fallback: Create Blob and download
+    const blob = new Blob(receiveFileState.chunks);
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = receiveFileState.fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    }, 1000);
+  }
   
   // Cleanup
   setTimeout(() => {
-    URL.revokeObjectURL(url);
     closeTransferModal();
     receiveFileState.chunks = [];
   }, 1000);
@@ -585,6 +623,14 @@ function cancelActiveTransfer() {
         peer.dc.send(JSON.stringify({ type: 'cancel' }));
       } catch(e){}
     }
+    
+    if (receiveFileState.useStream && navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'CANCEL_STREAM',
+        streamId: receiveFileState.streamId
+      });
+    }
+    
     receiveFileState.chunks = [];
   }
   
@@ -689,14 +735,47 @@ function setupUIEventListeners() {
   });
   
   // Accept / Decline Modals
-  document.getElementById('accept-file-btn').addEventListener('click', () => {
+  document.getElementById('accept-file-btn').addEventListener('click', async () => {
     document.getElementById('incoming-modal').classList.remove('active');
     
-    // Notify sender that we accepted
     const peer = peers.get(receiveFileState.senderPeerId);
-    if (peer && peer.dc && peer.dc.readyState === 'open') {
-      peer.dc.send(JSON.stringify({ type: 'accept' }));
+    if (!peer || !peer.dc || peer.dc.readyState !== 'open') return;
+
+    // Check if Service Worker is active and ready
+    const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    
+    if (sw) {
+      // 1. Tell Service Worker to create the response stream
+      const messageChannel = new MessageChannel();
+      sw.postMessage({
+        type: 'CREATE_STREAM',
+        streamId: receiveFileState.streamId,
+        name: receiveFileState.fileName,
+        size: receiveFileState.fileSize
+      }, [messageChannel.port2]);
+
+      // Wait for Service Worker OK response
+      await new Promise((resolve) => {
+        messageChannel.port1.onmessage = (e) => resolve(e.data);
+      });
+
+      // 2. Start browser download by loading stream in an iframe
+      let iframe = document.getElementById('sw-download-iframe');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'sw-download-iframe';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+      }
+      iframe.src = `/download-stream/${receiveFileState.streamId}`;
+      receiveFileState.useStream = true;
+    } else {
+      receiveFileState.useStream = false;
+      console.warn('Service Worker not active, falling back to in-memory buffering');
     }
+    
+    // Notify sender that we accepted
+    peer.dc.send(JSON.stringify({ type: 'accept' }));
   });
   
   document.getElementById('decline-file-btn').addEventListener('click', () => {
