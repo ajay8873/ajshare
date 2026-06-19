@@ -78,6 +78,8 @@ if ('serviceWorker' in navigator) {
 // Initialize Application
 document.addEventListener('DOMContentLoaded', () => {
   setupRoom();
+  generateQRCode();
+  loadHistory();
   connectSignaling();
   setupUIEventListeners();
 });
@@ -568,6 +570,7 @@ function sendOrderedChunks() {
       
       if (sendFileState.lastBytesSent >= sendFileState.file.size) {
         showToast('File transfer completed!', 'success');
+        addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'completed');
         setTimeout(closeTransferModal, 1500);
         return;
       }
@@ -669,6 +672,7 @@ function sendOrderedChunksWebSocket() {
       
       if (sendFileState.lastBytesSent >= sendFileState.file.size) {
         showToast('File transfer completed!', 'success');
+        addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'completed');
         setTimeout(closeTransferModal, 1500);
         return;
       }
@@ -725,6 +729,7 @@ function processIncomingChunk(peerId, data) {
 // Receive completion
 function finalizeReceivedFile() {
   showToast('File received successfully!', 'success');
+  addHistoryItem(receiveFileState.fileName, receiveFileState.fileSize, 'received', 'completed');
   
   if (receiveFileState.useStream && navigator.serviceWorker && navigator.serviceWorker.controller) {
     // Close the stream in Service Worker
@@ -789,6 +794,9 @@ function updateProgressUI(current, total, state, isSender) {
 function cancelActiveTransfer() {
   // If sender
   if (sendFileState.activeChannel || sendFileState.useWebSocketRelay) {
+    if (sendFileState.file) {
+      addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'cancelled');
+    }
     try {
       if (sendFileState.useWebSocketRelay) {
         sendSignal(sendFileState.targetPeerId, { type: 'ws-cancel' });
@@ -802,6 +810,9 @@ function cancelActiveTransfer() {
   
   // If receiver
   if (receiveFileState.senderPeerId) {
+    if (receiveFileState.fileName) {
+      addHistoryItem(receiveFileState.fileName, receiveFileState.fileSize, 'received', 'cancelled');
+    }
     try {
       if (receiveFileState.useWebSocketRelay) {
         sendSignal(receiveFileState.senderPeerId, { type: 'ws-cancel' });
@@ -892,6 +903,9 @@ function setupUIEventListeners() {
   // Copy Room Link
   document.getElementById('copy-room-btn').addEventListener('click', copyRoomLink);
   document.getElementById('invite-btn').addEventListener('click', copyRoomLink);
+  
+  // Clear History
+  document.getElementById('clear-history-btn').addEventListener('click', clearHistory);
   
   // File Input Handler
   document.getElementById('file-input').addEventListener('change', (e) => {
@@ -1058,4 +1072,120 @@ function showToast(message, type = 'success') {
     toast.style.transform = 'translateY(10px)';
     setTimeout(() => toast.remove(), 300);
   }, 3500);
+}
+
+// QR Code generation
+let qr = null;
+function generateQRCode() {
+  const url = window.location.href;
+  const canvas = document.getElementById('qr-code-canvas');
+  if (canvas) {
+    qr = new QRious({
+      element: canvas,
+      value: url,
+      size: 260,
+      background: '#ffffff',
+      foreground: '#0a0c16',
+      level: 'H'
+    });
+  }
+}
+
+// Transfer History Management
+let transferHistory = [];
+
+function loadHistory() {
+  try {
+    const data = localStorage.getItem('ajshare_history');
+    if (data) {
+      transferHistory = JSON.parse(data);
+    }
+  } catch(e) {
+    console.error('Error loading history:', e);
+  }
+  renderHistory();
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem('ajshare_history', JSON.stringify(transferHistory));
+  } catch(e) {
+    console.error('Error saving history:', e);
+  }
+}
+
+function addHistoryItem(name, size, type, status) {
+  const item = {
+    id: Math.random().toString(36).substring(2, 9),
+    name: name,
+    size: size,
+    type: type, // 'sent' or 'received'
+    status: status, // 'completed' or 'cancelled'
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  };
+  transferHistory.unshift(item); // Add to front of history
+  if (transferHistory.length > 30) {
+    transferHistory.pop();
+  }
+  saveHistory();
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  const emptyState = document.getElementById('empty-history');
+  
+  if (!list) return;
+  
+  // Clear previous items
+  const items = list.querySelectorAll('.history-item');
+  items.forEach(el => el.remove());
+  
+  if (transferHistory.length === 0) {
+    if (emptyState) emptyState.style.display = 'block';
+    return;
+  }
+  
+  if (emptyState) emptyState.style.display = 'none';
+  
+  transferHistory.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'history-item';
+    
+    const iconChar = item.type === 'sent' ? '↑' : '↓';
+    const typeClass = item.type;
+    
+    row.innerHTML = `
+      <div class="history-left">
+        <div class="history-icon-badge ${typeClass}">${iconChar}</div>
+        <div class="history-details">
+          <h4>${escapeHTML(item.name)}</h4>
+          <p>${formatBytes(item.size)} • ${item.timestamp}</p>
+        </div>
+      </div>
+      <div class="history-right">
+        <span class="history-status ${item.status}">${item.status}</span>
+      </div>
+    `;
+    list.appendChild(row);
+  });
+}
+
+function clearHistory() {
+  transferHistory = [];
+  saveHistory();
+  renderHistory();
+  showToast('Transfer history cleared');
+}
+
+function escapeHTML(str) {
+  return str.replace(/[&<>'"]/g, 
+    tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag] || tag)
+  );
 }
