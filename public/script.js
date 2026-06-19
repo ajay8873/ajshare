@@ -510,6 +510,11 @@ function startFileTransmission() {
   // Show progress modal
   document.getElementById('transfer-title').textContent = 'Sending File';
   document.getElementById('transfer-peer-info').textContent = `To ${peerInfo ? peerInfo.name : 'Peer'}`;
+  
+  const badge = document.getElementById('connection-mode-badge');
+  badge.textContent = 'Direct P2P (0 Internet Data)';
+  badge.className = 'connection-mode-badge direct';
+
   document.getElementById('transfer-modal').classList.add('active');
   
   // Set low threshold event
@@ -609,6 +614,11 @@ function startFileTransmissionWebSocket() {
   // Show progress modal
   document.getElementById('transfer-title').textContent = 'Sending File (Relay)';
   document.getElementById('transfer-peer-info').textContent = `To ${peerInfo ? peerInfo.name : 'Peer'}`;
+  
+  const badge = document.getElementById('connection-mode-badge');
+  badge.textContent = 'WebSocket Relay (Uses Internet Data)';
+  badge.className = 'connection-mode-badge relay';
+
   document.getElementById('transfer-modal').classList.add('active');
   
   sendNextChunksWebSocket();
@@ -709,6 +719,16 @@ function processIncomingChunk(peerId, data) {
     document.getElementById('transfer-title').textContent = 'Receiving File';
     const peer = peers.get(receiveFileState.senderPeerId);
     document.getElementById('transfer-peer-info').textContent = `From ${peer ? peer.name : 'Peer'}`;
+    
+    const badge = document.getElementById('connection-mode-badge');
+    if (receiveFileState.useWebSocketRelay) {
+      badge.textContent = 'WebSocket Relay (Uses Internet Data)';
+      badge.className = 'connection-mode-badge relay';
+    } else {
+      badge.textContent = 'Direct P2P (0 Internet Data)';
+      badge.className = 'connection-mode-badge direct';
+    }
+
     document.getElementById('transfer-modal').classList.add('active');
   }
   
@@ -949,6 +969,16 @@ function setupUIEventListeners() {
       // Show indicator that we are waiting for user acceptance
       document.getElementById('transfer-title').textContent = 'Waiting for Accept';
       document.getElementById('transfer-peer-info').textContent = `Waiting for ${peer ? peer.name : 'Peer'} to accept...`;
+      
+      const badge = document.getElementById('connection-mode-badge');
+      if (sendFileState.useWebSocketRelay) {
+        badge.textContent = 'Will use WebSocket Relay (Uses Internet Data)';
+        badge.className = 'connection-mode-badge relay';
+      } else {
+        badge.textContent = 'Will use Direct P2P (0 Internet Data)';
+        badge.className = 'connection-mode-badge direct';
+      }
+
       document.getElementById('transfer-speed').textContent = '-';
       document.getElementById('time-remaining').textContent = '-';
       document.getElementById('progress-bar').style.width = '0%';

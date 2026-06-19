@@ -62,7 +62,7 @@
             Force WebSocket Relay (Bypass WebRTC)
           </label>
           <label class="switch">
-            <input type="checkbox" id="relay-toggle" checked>
+            <input type="checkbox" id="relay-toggle">
             <span class="slider"></span>
           </label>
         </div>
@@ -151,6 +151,11 @@
     <div class="modal-content glass-card transfer-card">
       <h3 id="transfer-title">Transferring File</h3>
       <p id="transfer-peer-info" class="transfer-subtitle">Connecting...</p>
+      
+      <!-- Connection Mode Badge (Direct vs. Relayed) -->
+      <div class="connection-mode-container">
+        <span class="connection-mode-badge" id="connection-mode-badge">Checking connection...</span>
+      </div>
 
       <div class="progress-container">
         <!-- Linear progress bar -->

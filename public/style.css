@@ -1043,3 +1043,35 @@ body {
     gap: 16px;
   }
 }
+
+/* Connection Mode Badge styling */
+.connection-mode-container {
+  display: flex;
+  justify-content: center;
+  margin-top: -4px;
+  margin-bottom: 12px;
+}
+
+.connection-mode-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 30px;
+  letter-spacing: 0.2px;
+  transition: var(--transition-smooth);
+}
+
+.connection-mode-badge.direct {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.1);
+}
+
+.connection-mode-badge.relay {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.1);
+}
+
