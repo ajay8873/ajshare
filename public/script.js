@@ -1260,9 +1260,9 @@ function resetAllTransferStates() {
   // linger and cause a stray partial-file download.
   if (receiveFileState.useStream && receiveFileState.streamId &&
       navigator.serviceWorker && navigator.serviceWorker.controller) {
-    // Close the stream cleanly (not error) so the browser does NOT save a partial file.
+    // Abort the stream (error state) so the browser discards the partial download and does NOT save a partial file.
     navigator.serviceWorker.controller.postMessage({
-      type: 'CLOSE_STREAM',
+      type: 'CANCEL_STREAM',
       streamId: receiveFileState.streamId
     });
     // Immediately revoke the iframe so the browser stops the download.
