@@ -3,7 +3,7 @@
 
 // Configuration
 const CHUNK_SIZE = 16384; // 16KB for maximum cross-device compatibility and stability
-const BUFFER_THRESHOLD = 262144; // 256KB buffer to prevent WebRTC buffer overflow crashes
+const BUFFER_THRESHOLD = 1048576; // 1MB buffer to optimize throughput speed
 const PING_INTERVAL = 10000; // 10 seconds — keeps signaling alive even during file picker pauses
 
 // Application State
@@ -553,7 +553,7 @@ function processCandidateQueue(peerInfo) {
 
 function setupDataChannel(peerId, dc) {
   dc.binaryType = 'arraybuffer';
-  dc.bufferedAmountLowThreshold = 65536; // 64KB low threshold to keep buffer filled incrementally
+  dc.bufferedAmountLowThreshold = 262144; // 256KB low threshold to keep buffer filled incrementally
   
   dc.onopen = () => {
     const card = document.getElementById(`peer-${peerId}`);
