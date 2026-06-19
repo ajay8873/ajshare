@@ -902,7 +902,7 @@ function sendNextChunksWebSocket() {
     return;
   }
   
-  const WS_CHUNK_SIZE = 524288; // 512KB chunks for WebSocket
+  const WS_CHUNK_SIZE = 65536; // 64KB chunks for WebSocket
   const MAX_CONCURRENT_READS = 16;
   
   while (sendFileState.offset < file.size && 
@@ -932,7 +932,7 @@ function sendNextChunksWebSocket() {
 function sendOrderedChunksWebSocket() {
   if (!socket || socket.readyState !== WebSocket.OPEN) return;
   
-  const WS_BUFFER_THRESHOLD = 8388608; // 8MB buffer threshold
+  const WS_BUFFER_THRESHOLD = 262144; // 256KB buffer threshold
   
   while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
     if (socket.bufferedAmount >= WS_BUFFER_THRESHOLD) {
