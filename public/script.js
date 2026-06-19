@@ -399,6 +399,7 @@ function setupDataChannel(peerId, dc) {
     if (card) {
       card.classList.add('active');
     }
+    updatePeerConnectionBadge(peerId);
   };
   
   dc.onclose = () => {
@@ -406,6 +407,7 @@ function setupDataChannel(peerId, dc) {
     if (card) {
       card.classList.remove('active');
     }
+    updatePeerConnectionBadge(peerId);
   };
   
   dc.onmessage = (event) => {
@@ -891,7 +893,36 @@ function addPeerCardToGrid(peerId, name) {
   });
   
   grid.appendChild(card);
+  updatePeerConnectionBadge(peerId);
   updatePeerCount();
+}
+
+function updatePeerConnectionBadge(peerId) {
+  const card = document.getElementById(`peer-${peerId}`);
+  if (!card) return;
+  
+  const peerInfo = peers.get(peerId);
+  let badgeEl = card.querySelector('.peer-connection-badge');
+  if (!badgeEl) {
+    badgeEl = document.createElement('span');
+    badgeEl.className = 'peer-connection-badge';
+    // Insert before the peer-desc element
+    const descEl = card.querySelector('.peer-desc');
+    card.insertBefore(badgeEl, descEl);
+  }
+  
+  const forceRelay = document.getElementById('relay-toggle').checked;
+  
+  if (forceRelay) {
+    badgeEl.textContent = 'WebSocket Relay (Uses Data)';
+    badgeEl.className = 'peer-connection-badge relay';
+  } else if (peerInfo && peerInfo.dc && peerInfo.dc.readyState === 'open') {
+    badgeEl.textContent = 'Direct P2P (Free 0-Data)';
+    badgeEl.className = 'peer-connection-badge direct';
+  } else {
+    badgeEl.textContent = 'Connecting WebRTC P2P...';
+    badgeEl.className = 'peer-connection-badge relay';
+  }
 }
 
 function removePeer(peerId) {
@@ -928,6 +959,13 @@ function updateConnectionStatus(status, text) {
 }
 
 function setupUIEventListeners() {
+  // Relay toggle update connection badges
+  document.getElementById('relay-toggle').addEventListener('change', () => {
+    peers.forEach((peer, peerId) => {
+      updatePeerConnectionBadge(peerId);
+    });
+  });
+
   // Copy Room Link
   document.getElementById('copy-room-btn').addEventListener('click', copyRoomLink);
   document.getElementById('invite-btn').addEventListener('click', copyRoomLink);
