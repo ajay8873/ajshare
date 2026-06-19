@@ -20,6 +20,8 @@ let pendingSignals = [];
 // Transfer generation counter — increments on every reset so stale async
 // callbacks from a previous transfer can detect they are outdated and bail out.
 let transferGeneration = 0;
+let isSendingChunks = false;
+let isSendingWebSocket = false;
 
 // File Transfer State (Sender)
 let sendFileState = {
@@ -847,42 +849,55 @@ function sendNextChunks() {
 }
 
 function sendOrderedChunks() {
-  const dc = sendFileState.activeChannel;
-  if (!dc || dc.readyState !== 'open') return;
-  
-  while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
-    if (dc.bufferedAmount >= BUFFER_THRESHOLD) {
-      // Schedule a poll check shortly to resume sending when buffer drains
-      setTimeout(sendOrderedChunks, 10);
-      break;
-    }
-    
-    const index = sendFileState.sendIndex;
-    const chunk = sendFileState.readQueue.get(index);
-    sendFileState.readQueue.delete(index);
-    
-    try {
-      dc.send(chunk);
-      sendFileState.sendIndex++;
-      sendFileState.lastBytesSent += chunk.byteLength;
-      
-      updateProgressUI(sendFileState.lastBytesSent, sendFileState.file.size, sendFileState, true);
-      
-      if (sendFileState.lastBytesSent >= sendFileState.file.size) {
-        showToast('File transfer completed!', 'success');
-        addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'completed');
-        setTimeout(closeTransferModal, 1500);
-        return;
-      }
-    } catch (err) {
-      console.error('DataChannel send error:', err);
-      showToast('Failed to send chunk', 'danger');
-      cancelActiveTransfer();
+  if (isSendingChunks) return;
+  isSendingChunks = true;
+
+  try {
+    const dc = sendFileState.activeChannel;
+    if (!dc || dc.readyState !== 'open') {
+      isSendingChunks = false;
       return;
     }
+    
+    while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
+      if (dc.bufferedAmount >= BUFFER_THRESHOLD) {
+        // Schedule a poll check shortly to resume sending when buffer drains
+        isSendingChunks = false;
+        setTimeout(sendOrderedChunks, 10);
+        return;
+      }
+      
+      const index = sendFileState.sendIndex;
+      const chunk = sendFileState.readQueue.get(index);
+      sendFileState.readQueue.delete(index);
+      
+      try {
+        dc.send(chunk);
+        sendFileState.sendIndex++;
+        sendFileState.lastBytesSent += chunk.byteLength;
+        
+        updateProgressUI(sendFileState.lastBytesSent, sendFileState.file.size, sendFileState, true);
+        
+        if (sendFileState.lastBytesSent >= sendFileState.file.size) {
+          showToast('File transfer completed!', 'success');
+          addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'completed');
+          setTimeout(closeTransferModal, 1500);
+          isSendingChunks = false;
+          return;
+        }
+      } catch (err) {
+        console.error('DataChannel send error:', err);
+        showToast('Failed to send chunk', 'danger');
+        cancelActiveTransfer();
+        isSendingChunks = false;
+        return;
+      }
+    }
+    
+    sendNextChunks();
+  } finally {
+    isSendingChunks = false;
   }
-  
-  sendNextChunks();
 }
 
 // WebSocket Relay Transmission Logic
@@ -951,49 +966,62 @@ function sendNextChunksWebSocket() {
 }
 
 function sendOrderedChunksWebSocket() {
-  if (!socket || socket.readyState !== WebSocket.OPEN) return;
-  
-  const WS_BUFFER_THRESHOLD = 262144; // 256KB buffer threshold
-  
-  while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
-    if (socket.bufferedAmount >= WS_BUFFER_THRESHOLD) {
-      // Schedule check shortly and pause sending
-      setTimeout(sendOrderedChunksWebSocket, 5);
+  if (isSendingWebSocket) return;
+  isSendingWebSocket = true;
+
+  try {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      isSendingWebSocket = false;
       return;
     }
     
-    const index = sendFileState.sendIndex;
-    const chunk = sendFileState.readQueue.get(index);
-    sendFileState.readQueue.delete(index);
+    const WS_BUFFER_THRESHOLD = 262144; // 256KB buffer threshold
     
-    try {
-      // Construct binary payload: 8 bytes targetPeerId + chunk
-      const targetBytes = sendFileState.targetBytes;
-      const payload = new Uint8Array(8 + chunk.byteLength);
-      payload.set(targetBytes, 0);
-      payload.set(new Uint8Array(chunk), 8);
-      
-      socket.send(payload.buffer);
-      sendFileState.sendIndex++;
-      sendFileState.lastBytesSent += chunk.byteLength;
-      
-      updateProgressUI(sendFileState.lastBytesSent, sendFileState.file.size, sendFileState, true);
-      
-      if (sendFileState.lastBytesSent >= sendFileState.file.size) {
-        showToast('File transfer completed!', 'success');
-        addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'completed');
-        setTimeout(closeTransferModal, 1500);
+    while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
+      if (socket.bufferedAmount >= WS_BUFFER_THRESHOLD) {
+        // Schedule check shortly and pause sending
+        isSendingWebSocket = false;
+        setTimeout(sendOrderedChunksWebSocket, 5);
         return;
       }
-    } catch (err) {
-      console.error('WebSocket send error:', err);
-      showToast('Failed to send chunk', 'danger');
-      cancelActiveTransfer();
-      return;
+      
+      const index = sendFileState.sendIndex;
+      const chunk = sendFileState.readQueue.get(index);
+      sendFileState.readQueue.delete(index);
+      
+      try {
+        // Construct binary payload: 8 bytes targetPeerId + chunk
+        const targetBytes = sendFileState.targetBytes;
+        const payload = new Uint8Array(8 + chunk.byteLength);
+        payload.set(targetBytes, 0);
+        payload.set(new Uint8Array(chunk), 8);
+        
+        socket.send(payload.buffer);
+        sendFileState.sendIndex++;
+        sendFileState.lastBytesSent += chunk.byteLength;
+        
+        updateProgressUI(sendFileState.lastBytesSent, sendFileState.file.size, sendFileState, true);
+        
+        if (sendFileState.lastBytesSent >= sendFileState.file.size) {
+          showToast('File transfer completed!', 'success');
+          addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'completed');
+          setTimeout(closeTransferModal, 1500);
+          isSendingWebSocket = false;
+          return;
+        }
+      } catch (err) {
+        console.error('WebSocket send error:', err);
+        showToast('Failed to send chunk', 'danger');
+        cancelActiveTransfer();
+        isSendingWebSocket = false;
+        return;
+      }
     }
+    
+    sendNextChunksWebSocket();
+  } finally {
+    isSendingWebSocket = false;
   }
-  
-  sendNextChunksWebSocket();
 }
 
 // WebSocket Relay Reception Logic
