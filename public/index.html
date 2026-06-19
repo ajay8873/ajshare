@@ -35,6 +35,11 @@
         </button>
       </div>
     </div>
+    <div class="room-join-container" style="display: flex; align-items: center; gap: 8px;">
+      <span class="room-label">Join:</span>
+      <input type="text" id="join-room-input" placeholder="Room ID" style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 6px 14px; color: #fff; font-family: inherit; font-size: 13px; outline: none; width: 100px; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+      <button id="join-room-btn" class="btn btn-primary btn-sm" style="min-height: unset; padding: 6px 14px; font-size: 13px; border-radius: 20px;">Join</button>
+    </div>
   </header>
 
   <main class="app-main">

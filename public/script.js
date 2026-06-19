@@ -1460,6 +1460,32 @@ function updateQRTabSlider() {
 }
 
 function setupUIEventListeners() {
+  // Join Room Handler
+  const joinBtn = document.getElementById('join-room-btn');
+  const joinInput = document.getElementById('join-room-input');
+  if (joinBtn && joinInput) {
+    const performJoin = () => {
+      const targetRoom = joinInput.value.trim().toLowerCase();
+      if (!targetRoom) {
+        showToast('Please enter a valid Room ID', 'danger');
+        return;
+      }
+      if (targetRoom.length < 3) {
+        showToast('Room ID must be at least 3 characters', 'danger');
+        return;
+      }
+      window.location.hash = targetRoom;
+      window.location.reload();
+    };
+
+    joinBtn.addEventListener('click', performJoin);
+    joinInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        performJoin();
+      }
+    });
+  }
+
   // QR Mode tab switcher
   const tabLocal = document.getElementById('qr-tab-local');
   const tabInternet = document.getElementById('qr-tab-internet');
