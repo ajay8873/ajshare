@@ -1166,25 +1166,35 @@ body {
 
 /* Join Room Card */
 .join-room-card {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.join-left-col {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 24px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  height: 100%;
 }
 
 .join-room-card .title-group {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-grow: 1;
+  margin-bottom: 12px;
 }
 
-.join-room-card .title-group span {
-  font-size: 14px;
+.join-room-card .title-group h3 {
+  font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.join-instruction {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 .join-input-group {
@@ -1198,12 +1208,13 @@ body {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
-  padding: 8px 16px;
+  padding: 10px 18px;
   color: #fff;
   font-family: inherit;
   font-size: 13px;
   outline: none;
-  width: 140px;
+  width: 160px;
+  flex-grow: 1;
   transition: var(--transition-smooth);
 }
 
@@ -1213,7 +1224,7 @@ body {
 }
 
 .join-input-group button {
-  padding: 8px 18px;
+  padding: 10px 20px;
   font-size: 13px;
   border-radius: 20px;
   min-height: unset;
@@ -1222,56 +1233,61 @@ body {
 .apk-download-group {
   display: flex;
   align-items: center;
-  gap: 8px;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  padding-left: 16px;
-  margin-left: 8px;
+  margin-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: 20px;
 }
 
 .apk-download-group a {
-  font-size: 11px;
-  padding: 6px 14px;
+  font-size: 13px;
+  padding: 12px 24px;
+  height: 44px;
   border-radius: 20px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
   text-decoration: none;
+  font-weight: 600;
+  transition: var(--transition-smooth);
+}
+
+.join-right-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  padding-left: 32px;
+  width: 100%;
 }
 
 @media (max-width: 768px) {
   .join-room-card {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 14px;
-    padding: 16px;
+    grid-template-columns: 1fr;
+    gap: 24px;
   }
   
-  .join-room-card .title-group {
-    justify-content: center;
+  .join-right-col {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-left: 0;
+    padding-top: 24px;
   }
   
   .join-input-group {
-    justify-content: center;
     width: 100%;
   }
   
   .join-input-group input {
-    flex-grow: 1;
+    width: 100%;
   }
   
   .apk-download-group {
-    border-left: none;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
-    padding-left: 0;
-    padding-top: 12px;
-    margin-left: 0;
-    justify-content: center;
-    width: 100%;
+    padding-top: 20px;
   }
   
   .apk-download-group a {
     width: 100%;
   }
 }
-
-

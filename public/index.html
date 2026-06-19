@@ -38,21 +38,43 @@
   </header>
 
   <main class="app-main">
-    <!-- Join Room & Download App Container -->
+    <!-- Join Room & Quick Share (QR) Container -->
     <section class="card join-room-card">
-      <div class="title-group">
-        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg>
-        <span>Connect to Another Room</span>
+      <div class="join-left-col">
+        <div class="title-group">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg>
+          <h3>Join or Share Room</h3>
+        </div>
+        <p class="join-instruction">Enter Room ID to join room or scan the QR code with another device.</p>
+        
+        <div class="join-input-group" style="margin-top: 16px;">
+          <input type="text" id="join-room-input" placeholder="Enter Room ID">
+          <button id="join-room-btn" class="btn btn-primary">Join Room</button>
+        </div>
+        
+        <div class="apk-download-group">
+          <a href="/ajshare.apk" download class="btn btn-secondary btn-sm">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Download Android App (APK)
+          </a>
+        </div>
       </div>
-      <div class="join-input-group">
-        <input type="text" id="join-room-input" placeholder="Enter Room ID">
-        <button id="join-room-btn" class="btn btn-primary">Join Room</button>
-      </div>
-      <div class="apk-download-group">
-        <a href="/ajshare.apk" download class="btn btn-secondary btn-sm">
-          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-          Download APK
-        </a>
+      
+      <div class="join-right-col">
+        <div class="qr-header" style="margin-bottom: 12px; text-align: center;">
+          <h3>Quick Share QR</h3>
+          <div class="qr-toggle-tabs">
+            <div class="qr-tab-slider"></div>
+            <button id="qr-tab-local" class="qr-tab active">Local (Hotspot/Wi-Fi)</button>
+            <button id="qr-tab-internet" class="qr-tab">Internet (Remote)</button>
+          </div>
+        </div>
+        <div class="qr-body">
+          <div class="qr-container">
+            <canvas id="qr-code-canvas"></canvas>
+          </div>
+          <div class="qr-link-display" id="qr-link-text">Loading link...</div>
+        </div>
       </div>
     </section>
 
@@ -90,24 +112,6 @@
             Optimize Local Direct P2P (Bypass mDNS)
           </label>
           <button id="optimize-p2p-btn" class="btn btn-secondary btn-sm" style="min-height: unset; padding: 6px 12px; font-size: 11px;">Enable</button>
-        </div>
-      </section>
-
-      <!-- Screen 1.5: Invitation QR Code -->
-      <section class="card qr-card">
-        <div class="qr-header" style="margin-bottom: 12px; text-align: center;">
-          <h3>Quick Share</h3>
-          <div class="qr-toggle-tabs">
-            <div class="qr-tab-slider"></div>
-            <button id="qr-tab-local" class="qr-tab active">Local (Hotspot/Wi-Fi)</button>
-            <button id="qr-tab-internet" class="qr-tab">Internet (Remote)</button>
-          </div>
-        </div>
-        <div class="qr-body">
-          <div class="qr-container">
-            <canvas id="qr-code-canvas"></canvas>
-          </div>
-          <div class="qr-link-display" id="qr-link-text">Loading link...</div>
         </div>
       </section>
     </div>
