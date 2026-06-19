@@ -1328,13 +1328,6 @@ function cancelActiveTransfer() {
 function addPeerCardToGrid(peerId, name) {
   const grid = document.getElementById('peer-grid');
   
-  // Clean up any stale peers that were marked as selecting a file
-  peers.forEach((peer, oldPeerId) => {
-    if (peer.isSelectingFile) {
-      removePeer(oldPeerId);
-    }
-  });
-  
   // Remove empty state if present
   const emptyState = document.getElementById('empty-state');
   if (emptyState) {
