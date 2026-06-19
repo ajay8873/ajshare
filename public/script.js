@@ -80,16 +80,25 @@ function setupRoom() {
 
 // Connect to signaling server
 function connectSignaling() {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  let host = window.location.host;
+  const host = window.location.host;
   
-  // Use current host for websocket signaling server.
-  // Fall back to the deployed production worker if opening index.html directly from file:// protocol.
-  if (!host || window.location.protocol === 'file:') {
-    host = 'ajshare.mehtaajay8873.workers.dev';
+  // Detect if running in a local development environment
+  const isDev = !host || 
+                host.startsWith('localhost') || 
+                host.startsWith('127.0.0.1') || 
+                host.startsWith('192.168.') || 
+                host.startsWith('10.') || 
+                host.startsWith('172.');
+
+  let wsProtocol = 'wss:';
+  let wsHost = 'ajshare.mehtaajay8873.workers.dev';
+
+  if (isDev && window.location.protocol !== 'file:') {
+    wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    wsHost = host;
   }
   
-  const wsUrl = `${protocol}//${host}/ws?room=${roomId}`;
+  const wsUrl = `${wsProtocol}//${wsHost}/ws?room=${roomId}`;
   
   updateConnectionStatus('connecting', 'Connecting...');
   
