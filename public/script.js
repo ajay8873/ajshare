@@ -117,6 +117,7 @@ function connectSignaling() {
   updateConnectionStatus('connecting', 'Connecting...');
   
   socket = new WebSocket(wsUrl);
+  socket.binaryType = 'arraybuffer';
   
   socket.addEventListener('open', () => {
     updateConnectionStatus('online', 'Online');
@@ -132,8 +133,13 @@ function connectSignaling() {
   
   socket.addEventListener('message', async (event) => {
     try {
-      const msg = JSON.parse(event.data);
-      handleSignalingMessage(msg);
+      if (typeof event.data === 'string') {
+        const msg = JSON.parse(event.data);
+        handleSignalingMessage(msg);
+      } else {
+        // Relayed binary chunk from the WebSocket signaling server
+        handleRelayedWebSocketChunk(event.data);
+      }
     } catch (err) {
       console.error('Error parsing signaling message:', err);
     }
@@ -178,7 +184,42 @@ function handleSignalingMessage(msg) {
       break;
       
     case 'signal':
-      handleIncomingSignal(msg.sender, msg.signal);
+      const sig = msg.signal;
+      if (sig.type === 'ws-meta') {
+        receiveFileState = {
+          fileName: sig.name,
+          fileSize: sig.size,
+          receivedSize: 0,
+          chunks: [],
+          senderPeerId: msg.sender,
+          startTime: null,
+          lastBytesReceived: 0,
+          lastTime: null,
+          streamId: Math.random().toString(36).substring(2, 15),
+          useStream: false,
+          useWebSocketRelay: true
+        };
+        
+        const peerInfo = peers.get(msg.sender);
+        // Display accept modal
+        document.getElementById('incoming-peer-name').textContent = peerInfo ? peerInfo.name : 'Remote Device';
+        document.getElementById('incoming-file-name').textContent = sig.name;
+        document.getElementById('incoming-file-size').textContent = formatBytes(sig.size);
+        document.getElementById('incoming-modal').classList.add('active');
+      } else if (sig.type === 'ws-accept') {
+        // Callee accepted our WebSocket Relay request!
+        startFileTransmissionWebSocket();
+      } else if (sig.type === 'ws-decline') {
+        showToast('Peer declined the file transfer', 'danger');
+        closeTransferModal();
+      } else if (sig.type === 'ws-cancel') {
+        showToast('Transfer was cancelled by peer', 'danger');
+        closeTransferModal();
+        receiveFileState.chunks = [];
+      } else {
+        // Standard WebRTC signals (offer, answer, candidate)
+        handleIncomingSignal(msg.sender, sig);
+      }
       break;
   }
 }
@@ -429,37 +470,7 @@ function handleDataChannelMessage(peerId, data) {
     }
   } else {
     // ArrayBuffer - actual file chunk
-    if (!receiveFileState.startTime) {
-      receiveFileState.startTime = performance.now();
-      receiveFileState.lastTime = receiveFileState.startTime;
-      
-      // Show transfer overlay as receiving
-      document.getElementById('transfer-title').textContent = 'Receiving File';
-      const peer = peers.get(receiveFileState.senderPeerId);
-      document.getElementById('transfer-peer-info').textContent = `From ${peer ? peer.name : 'Peer'}`;
-      document.getElementById('transfer-modal').classList.add('active');
-    }
-    
-    receiveFileState.receivedSize += data.byteLength;
-    
-    if (receiveFileState.useStream && navigator.serviceWorker && navigator.serviceWorker.controller) {
-      // Feed chunk directly to Service Worker stream
-      navigator.serviceWorker.controller.postMessage({
-        type: 'WRITE_CHUNK',
-        streamId: receiveFileState.streamId,
-        chunk: data
-      });
-    } else {
-      // Fallback: Buffer in memory
-      receiveFileState.chunks.push(data);
-    }
-    
-    updateProgressUI(receiveFileState.receivedSize, receiveFileState.fileSize, receiveFileState, false);
-    
-    // Check if fully received
-    if (receiveFileState.receivedSize >= receiveFileState.fileSize) {
-      finalizeReceivedFile();
-    }
+    processIncomingChunk(peerId, data);
   }
 }
 
@@ -542,6 +553,123 @@ function sendNextChunks() {
   }
 }
 
+// WebSocket Relay Transmission Logic
+function startFileTransmissionWebSocket() {
+  sendFileState.offset = 0;
+  sendFileState.startTime = performance.now();
+  sendFileState.lastTime = sendFileState.startTime;
+  sendFileState.lastBytesSent = 0;
+  
+  const peerInfo = peers.get(sendFileState.targetPeerId);
+  
+  // Show progress modal
+  document.getElementById('transfer-title').textContent = 'Sending File (Relay)';
+  document.getElementById('transfer-peer-info').textContent = `To ${peerInfo ? peerInfo.name : 'Peer'}`;
+  document.getElementById('transfer-modal').classList.add('active');
+  
+  sendNextChunksWebSocket();
+}
+
+function sendNextChunksWebSocket() {
+  const file = sendFileState.file;
+  const targetPeerId = sendFileState.targetPeerId;
+  
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    showToast('Signaling connection lost', 'danger');
+    return;
+  }
+  
+  while (sendFileState.offset < file.size) {
+    // Check if WebSocket bufferedAmount is too high to prevent backpressure issues
+    if (socket.bufferedAmount > BUFFER_THRESHOLD) {
+      // Wait and try again shortly
+      setTimeout(sendNextChunksWebSocket, 50);
+      return;
+    }
+    
+    const slice = file.slice(sendFileState.offset, sendFileState.offset + CHUNK_SIZE);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        try {
+          const chunk = e.target.result;
+          
+          // Construct binary payload: 8 bytes targetPeerId + chunk
+          const targetBytes = new TextEncoder().encode(targetPeerId); // 8 bytes
+          const payload = new Uint8Array(8 + chunk.byteLength);
+          payload.set(targetBytes, 0);
+          payload.set(new Uint8Array(chunk), 8);
+          
+          socket.send(payload.buffer);
+          
+          sendFileState.offset += slice.size;
+          
+          updateProgressUI(sendFileState.offset, file.size, sendFileState, true);
+          
+          if (sendFileState.offset >= file.size) {
+            showToast('File transfer completed!', 'success');
+            setTimeout(closeTransferModal, 1500);
+          } else {
+            sendNextChunksWebSocket();
+          }
+        } catch (err) {
+          console.error('WebSocket send error:', err);
+          showToast('Failed to send chunk', 'danger');
+          cancelActiveTransfer();
+        }
+      }
+    };
+    reader.readAsArrayBuffer(slice);
+    return; // Break because reader is async
+  }
+}
+
+// WebSocket Relay Reception Logic
+function handleRelayedWebSocketChunk(arrayBuffer) {
+  if (arrayBuffer.byteLength > 8) {
+    const senderBytes = arrayBuffer.slice(0, 8);
+    const senderId = new TextDecoder().decode(senderBytes);
+    const chunk = arrayBuffer.slice(8);
+    
+    processIncomingChunk(senderId, chunk);
+  }
+}
+
+function processIncomingChunk(peerId, data) {
+  if (!receiveFileState.startTime) {
+    receiveFileState.startTime = performance.now();
+    receiveFileState.lastTime = receiveFileState.startTime;
+    
+    // Show transfer overlay as receiving
+    document.getElementById('transfer-title').textContent = 'Receiving File';
+    const peer = peers.get(receiveFileState.senderPeerId);
+    document.getElementById('transfer-peer-info').textContent = `From ${peer ? peer.name : 'Peer'}`;
+    document.getElementById('transfer-modal').classList.add('active');
+  }
+  
+  receiveFileState.receivedSize += data.byteLength;
+  
+  if (receiveFileState.useStream && navigator.serviceWorker && navigator.serviceWorker.controller) {
+    // Feed chunk directly to Service Worker stream
+    navigator.serviceWorker.controller.postMessage({
+      type: 'WRITE_CHUNK',
+      streamId: receiveFileState.streamId,
+      chunk: data
+    });
+  } else {
+    // Fallback: Buffer in memory
+    receiveFileState.chunks.push(data);
+  }
+  
+  updateProgressUI(receiveFileState.receivedSize, receiveFileState.fileSize, receiveFileState, false);
+  
+  // Check if fully received
+  if (receiveFileState.receivedSize >= receiveFileState.fileSize) {
+    finalizeReceivedFile();
+  }
+}
+
 // Receive completion
 function finalizeReceivedFile() {
   showToast('File received successfully!', 'success');
@@ -608,21 +736,30 @@ function updateProgressUI(current, total, state, isSender) {
 // Cancel transfers
 function cancelActiveTransfer() {
   // If sender
-  if (sendFileState.activeChannel) {
+  if (sendFileState.activeChannel || sendFileState.useWebSocketRelay) {
     try {
-      sendFileState.activeChannel.send(JSON.stringify({ type: 'cancel' }));
+      if (sendFileState.useWebSocketRelay) {
+        sendSignal(sendFileState.targetPeerId, { type: 'ws-cancel' });
+      } else {
+        sendFileState.activeChannel.send(JSON.stringify({ type: 'cancel' }));
+      }
     } catch(e){}
     sendFileState.activeChannel = null;
+    sendFileState.useWebSocketRelay = false;
   }
   
   // If receiver
   if (receiveFileState.senderPeerId) {
-    const peer = peers.get(receiveFileState.senderPeerId);
-    if (peer && peer.dc && peer.dc.readyState === 'open') {
-      try {
-        peer.dc.send(JSON.stringify({ type: 'cancel' }));
-      } catch(e){}
-    }
+    try {
+      if (receiveFileState.useWebSocketRelay) {
+        sendSignal(receiveFileState.senderPeerId, { type: 'ws-cancel' });
+      } else {
+        const peer = peers.get(receiveFileState.senderPeerId);
+        if (peer && peer.dc && peer.dc.readyState === 'open') {
+          peer.dc.send(JSON.stringify({ type: 'cancel' }));
+        }
+      }
+    } catch(e){}
     
     if (receiveFileState.useStream && navigator.serviceWorker && navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage({
@@ -711,26 +848,37 @@ function setupUIEventListeners() {
       sendFileState.file = file;
       
       const peer = peers.get(sendFileState.targetPeerId);
+      
       if (peer && peer.dc && peer.dc.readyState === 'open') {
+        sendFileState.useWebSocketRelay = false;
+        
         // Send meta information to receiver
         peer.dc.send(JSON.stringify({
           type: 'meta',
           name: file.name,
           size: file.size
         }));
-        
-        // Show indicator that we are waiting for user acceptance
-        document.getElementById('transfer-title').textContent = 'Waiting for Accept';
-        document.getElementById('transfer-peer-info').textContent = `Waiting for ${peer.name} to accept...`;
-        document.getElementById('transfer-speed').textContent = '-';
-        document.getElementById('time-remaining').textContent = '-';
-        document.getElementById('progress-bar').style.width = '0%';
-        document.getElementById('progress-percent').textContent = '0%';
-        document.getElementById('transferred-bytes').textContent = `File: ${file.name} (${formatBytes(file.size)})`;
-        document.getElementById('transfer-modal').classList.add('active');
       } else {
-        showToast('WebRTC connection is still establishing. Please wait a moment and try again.', 'info');
+        // Fallback: Send meta over WebSocket Signaling channel
+        sendFileState.useWebSocketRelay = true;
+        showToast('WebRTC offline. Relaying via WebSocket...', 'info');
+        
+        sendSignal(sendFileState.targetPeerId, {
+          type: 'ws-meta',
+          name: file.name,
+          size: file.size
+        });
       }
+      
+      // Show indicator that we are waiting for user acceptance
+      document.getElementById('transfer-title').textContent = 'Waiting for Accept';
+      document.getElementById('transfer-peer-info').textContent = `Waiting for ${peer ? peer.name : 'Peer'} to accept...`;
+      document.getElementById('transfer-speed').textContent = '-';
+      document.getElementById('time-remaining').textContent = '-';
+      document.getElementById('progress-bar').style.width = '0%';
+      document.getElementById('progress-percent').textContent = '0%';
+      document.getElementById('transferred-bytes').textContent = `File: ${file.name} (${formatBytes(file.size)})`;
+      document.getElementById('transfer-modal').classList.add('active');
     }
   });
   
@@ -738,9 +886,6 @@ function setupUIEventListeners() {
   document.getElementById('accept-file-btn').addEventListener('click', async () => {
     document.getElementById('incoming-modal').classList.remove('active');
     
-    const peer = peers.get(receiveFileState.senderPeerId);
-    if (!peer || !peer.dc || peer.dc.readyState !== 'open') return;
-
     // Check if Service Worker is active and ready
     const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
     
@@ -775,16 +920,27 @@ function setupUIEventListeners() {
     }
     
     // Notify sender that we accepted
-    peer.dc.send(JSON.stringify({ type: 'accept' }));
+    if (receiveFileState.useWebSocketRelay) {
+      sendSignal(receiveFileState.senderPeerId, { type: 'ws-accept' });
+    } else {
+      const peer = peers.get(receiveFileState.senderPeerId);
+      if (peer && peer.dc && peer.dc.readyState === 'open') {
+        peer.dc.send(JSON.stringify({ type: 'accept' }));
+      }
+    }
   });
   
   document.getElementById('decline-file-btn').addEventListener('click', () => {
     document.getElementById('incoming-modal').classList.remove('active');
     
     // Notify sender that we declined
-    const peer = peers.get(receiveFileState.senderPeerId);
-    if (peer && peer.dc && peer.dc.readyState === 'open') {
-      peer.dc.send(JSON.stringify({ type: 'decline' }));
+    if (receiveFileState.useWebSocketRelay) {
+      sendSignal(receiveFileState.senderPeerId, { type: 'ws-decline' });
+    } else {
+      const peer = peers.get(receiveFileState.senderPeerId);
+      if (peer && peer.dc && peer.dc.readyState === 'open') {
+        peer.dc.send(JSON.stringify({ type: 'decline' }));
+      }
     }
   });
   

@@ -76,25 +76,47 @@ export class RoomDO {
 
     ws.addEventListener('message', async (msg) => {
       try {
-        const data = JSON.parse(msg.data);
+        if (typeof msg.data === 'string') {
+          const data = JSON.parse(msg.data);
 
-        switch (data.type) {
-          case 'signal':
-            // Relay WebRTC signal to a specific target peer
-            if (data.target && this.sessions.has(data.target)) {
-              const targetSocket = this.sessions.get(data.target);
-              targetSocket.send(JSON.stringify({
-                type: 'signal',
-                sender: clientId,
-                signal: data.signal
-              }));
+          switch (data.type) {
+            case 'signal':
+              // Relay WebRTC signal to a specific target peer
+              if (data.target && this.sessions.has(data.target)) {
+                const targetSocket = this.sessions.get(data.target);
+                targetSocket.send(JSON.stringify({
+                  type: 'signal',
+                  sender: clientId,
+                  signal: data.signal
+                }));
+              }
+              break;
+
+            case 'ping':
+              // Keep-alive ping
+              ws.send(JSON.stringify({ type: 'pong' }));
+              break;
+          }
+        } else {
+          // Binary message (file chunk relay)
+          // The first 8 bytes of the binary payload contain the target client ID
+          const arrayBuffer = msg.data;
+          if (arrayBuffer.byteLength > 8) {
+            const targetBytes = arrayBuffer.slice(0, 8);
+            const targetId = new TextDecoder().decode(targetBytes);
+            
+            if (this.sessions.has(targetId)) {
+              const targetSocket = this.sessions.get(targetId);
+              
+              // Relabel the packet: replace target client ID with the sender client ID
+              const senderBytes = new TextEncoder().encode(clientId); // 8 bytes
+              const relayBuffer = new Uint8Array(arrayBuffer.byteLength);
+              relayBuffer.set(senderBytes, 0);
+              relayBuffer.set(new Uint8Array(arrayBuffer.slice(8)), 8);
+              
+              targetSocket.send(relayBuffer.buffer);
             }
-            break;
-
-          case 'ping':
-            // Keep-alive ping
-            ws.send(JSON.stringify({ type: 'pong' }));
-            break;
+          }
         }
       } catch (err) {
         console.error('Error handling WebSocket message:', err);
