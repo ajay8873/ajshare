@@ -1479,13 +1479,20 @@ async function enableLocalIPs() {
 
     sendFileState.file = file;
     
-    // Always tear down the old connection first to prevent sending meta over a dying/suspended socket,
-    // then establish a fresh connection for the file transfer.
-    removePeer(sendFileState.targetPeerId);
-    initiatePeerConnection(sendFileState.targetPeerId);
+    const forceRelay = document.getElementById('relay-toggle').checked;
+    const existingPeer = peers.get(sendFileState.targetPeerId);
+
+    // Only tear down and reconnect if the WebRTC Data Channel is not currently open/active
+    // OR if we are forcing relay mode.
+    if ((!existingPeer || !existingPeer.dc || existingPeer.dc.readyState !== 'open') && !forceRelay) {
+      console.log('Direct WebRTC Data Channel not open. Re-initiating peer connection...');
+      removePeer(sendFileState.targetPeerId);
+      initiatePeerConnection(sendFileState.targetPeerId);
+    } else {
+      console.log('Direct WebRTC Data Channel is already open and active. Reusing existing connection.');
+    }
     
     const peer = peers.get(sendFileState.targetPeerId);
-    const forceRelay = document.getElementById('relay-toggle').checked;
 
     // --- Show the "waiting" UI immediately so user sees feedback ---
     document.getElementById('transfer-title').textContent = 'Waiting for Accept';
