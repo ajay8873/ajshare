@@ -2,7 +2,7 @@
 // AJShare Client Logic
 
 // Configuration
-const CHUNK_SIZE = 16384; // 16KB for maximum cross-device compatibility and stability
+const CHUNK_SIZE = 32768; // 32KB for optimal speed and mobile WebView compatibility
 const BUFFER_THRESHOLD = 1048576; // 1MB buffer to optimize throughput speed
 const PING_INTERVAL = 10000; // 10 seconds — keeps signaling alive even during file picker pauses
 
