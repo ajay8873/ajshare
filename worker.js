@@ -107,14 +107,8 @@ export class RoomDO {
             
             if (this.sessions.has(targetId)) {
               const targetSocket = this.sessions.get(targetId);
-              
-              // Relabel the packet: replace target client ID with the sender client ID
-              const senderBytes = new TextEncoder().encode(clientId); // 8 bytes
-              const relayBuffer = new Uint8Array(arrayBuffer.byteLength);
-              relayBuffer.set(senderBytes, 0);
-              relayBuffer.set(new Uint8Array(arrayBuffer.slice(8)), 8);
-              
-              targetSocket.send(relayBuffer.buffer);
+              // Forward the remaining chunk directly (zero reallocation relay)
+              targetSocket.send(arrayBuffer.slice(8));
             }
           }
         }

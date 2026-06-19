@@ -2,8 +2,8 @@
 // AJShare Client Logic
 
 // Configuration
-const CHUNK_SIZE = 16384; // 16KB for maximum compatibility across mobile devices
-const BUFFER_THRESHOLD = 65536; // 64KB backpressure threshold
+const CHUNK_SIZE = 65536; // 64KB for maximum speed while maintaining cross-browser compatibility
+const BUFFER_THRESHOLD = 1048576; // 1MB backpressure threshold to keep the pipe saturated
 const PING_INTERVAL = 30000; // 30 seconds
 
 // Application State
@@ -22,7 +22,10 @@ let sendFileState = {
   lastBytesSent: 0,
   lastTime: null,
   activeChannel: null,
-  activeReads: 0 // Track concurrent disk reads in flight
+  activeReads: 0, // Track concurrent disk reads in flight
+  readQueue: new Map(), // index -> ArrayBuffer
+  readIndex: 0,         // Index of the next chunk we slice/read from disk
+  sendIndex: 0          // Index of the next chunk we need to send
 };
 
 // File Transfer State (Receiver)
@@ -488,6 +491,9 @@ function startFileTransmission() {
   sendFileState.lastTime = sendFileState.startTime;
   sendFileState.lastBytesSent = 0;
   sendFileState.activeReads = 0;
+  sendFileState.readQueue = new Map();
+  sendFileState.readIndex = 0;
+  sendFileState.sendIndex = 0;
   
   const peerInfo = peers.get(sendFileState.targetPeerId);
   const dc = peerInfo ? peerInfo.dc : null;
@@ -506,7 +512,7 @@ function startFileTransmission() {
   
   // Set low threshold event
   dc.onbufferedamountlow = () => {
-    sendNextChunks();
+    sendOrderedChunks();
   };
   
   sendNextChunks();
@@ -518,13 +524,14 @@ function sendNextChunks() {
   
   if (!dc || dc.readyState !== 'open') return;
   
-  const MAX_CONCURRENT_READS = 4;
+  const MAX_CONCURRENT_READS = 8;
   
   while (sendFileState.offset < file.size && 
-         dc.bufferedAmount < BUFFER_THRESHOLD && 
-         sendFileState.activeReads < MAX_CONCURRENT_READS) {
+         sendFileState.activeReads < MAX_CONCURRENT_READS &&
+         (sendFileState.readIndex - sendFileState.sendIndex) < MAX_CONCURRENT_READS) {
            
     sendFileState.activeReads++;
+    const currentIndex = sendFileState.readIndex++;
     const currentOffset = sendFileState.offset;
     const slice = file.slice(currentOffset, currentOffset + CHUNK_SIZE);
     sendFileState.offset += slice.size;
@@ -532,38 +539,63 @@ function sendNextChunks() {
     const reader = new FileReader();
     reader.onload = (e) => {
       sendFileState.activeReads--;
-      
-      if (dc.readyState === 'open') {
-        try {
-          dc.send(e.target.result);
-          
-          sendFileState.lastBytesSent += slice.size;
-          updateProgressUI(sendFileState.lastBytesSent, file.size, sendFileState, true);
-          
-          if (sendFileState.lastBytesSent >= file.size) {
-            showToast('File transfer completed!', 'success');
-            setTimeout(closeTransferModal, 1500);
-          } else {
-            sendNextChunks();
-          }
-        } catch (err) {
-          console.error('DataChannel send error:', err);
-          showToast('Failed to send chunk', 'danger');
-          cancelActiveTransfer();
-        }
-      }
+      sendFileState.readQueue.set(currentIndex, e.target.result);
+      sendOrderedChunks();
     };
     reader.readAsArrayBuffer(slice);
   }
 }
 
+function sendOrderedChunks() {
+  const dc = sendFileState.activeChannel;
+  if (!dc || dc.readyState !== 'open') return;
+  
+  while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
+    if (dc.bufferedAmount >= BUFFER_THRESHOLD) {
+      break;
+    }
+    
+    const index = sendFileState.sendIndex;
+    const chunk = sendFileState.readQueue.get(index);
+    sendFileState.readQueue.delete(index);
+    
+    try {
+      dc.send(chunk);
+      sendFileState.sendIndex++;
+      sendFileState.lastBytesSent += chunk.byteLength;
+      
+      updateProgressUI(sendFileState.lastBytesSent, sendFileState.file.size, sendFileState, true);
+      
+      if (sendFileState.lastBytesSent >= sendFileState.file.size) {
+        showToast('File transfer completed!', 'success');
+        setTimeout(closeTransferModal, 1500);
+        return;
+      }
+    } catch (err) {
+      console.error('DataChannel send error:', err);
+      showToast('Failed to send chunk', 'danger');
+      cancelActiveTransfer();
+      return;
+    }
+  }
+  
+  sendNextChunks();
+}
+
 // WebSocket Relay Transmission Logic
 function startFileTransmissionWebSocket() {
+  const file = sendFileState.file;
   sendFileState.offset = 0;
   sendFileState.startTime = performance.now();
   sendFileState.lastTime = sendFileState.startTime;
   sendFileState.lastBytesSent = 0;
   sendFileState.activeReads = 0;
+  sendFileState.readQueue = new Map();
+  sendFileState.readIndex = 0;
+  sendFileState.sendIndex = 0;
+  
+  // Cache encoded target peer ID bytes
+  sendFileState.targetBytes = new TextEncoder().encode(sendFileState.targetPeerId); // 8 bytes
   
   const peerInfo = peers.get(sendFileState.targetPeerId);
   
@@ -577,7 +609,6 @@ function startFileTransmissionWebSocket() {
 
 function sendNextChunksWebSocket() {
   const file = sendFileState.file;
-  const targetPeerId = sendFileState.targetPeerId;
   
   if (!socket || socket.readyState !== WebSocket.OPEN) {
     showToast('Signaling connection lost', 'danger');
@@ -585,14 +616,14 @@ function sendNextChunksWebSocket() {
   }
   
   const WS_CHUNK_SIZE = 131072; // 128KB chunks for WebSocket
-  const WS_BUFFER_THRESHOLD = 1048576; // 1MB buffer threshold
-  const MAX_CONCURRENT_READS = 4;
+  const MAX_CONCURRENT_READS = 8;
   
   while (sendFileState.offset < file.size && 
-         socket.bufferedAmount < WS_BUFFER_THRESHOLD && 
-         sendFileState.activeReads < MAX_CONCURRENT_READS) {
+         sendFileState.activeReads < MAX_CONCURRENT_READS &&
+         (sendFileState.readIndex - sendFileState.sendIndex) < MAX_CONCURRENT_READS) {
            
     sendFileState.activeReads++;
+    const currentIndex = sendFileState.readIndex++;
     const currentOffset = sendFileState.offset;
     const slice = file.slice(currentOffset, currentOffset + WS_CHUNK_SIZE);
     sendFileState.offset += slice.size;
@@ -600,53 +631,61 @@ function sendNextChunksWebSocket() {
     const reader = new FileReader();
     reader.onload = (e) => {
       sendFileState.activeReads--;
-      
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        try {
-          const chunk = e.target.result;
-          
-          // Construct binary payload: 8 bytes targetPeerId + chunk
-          const targetBytes = new TextEncoder().encode(targetPeerId); // 8 bytes
-          const payload = new Uint8Array(8 + chunk.byteLength);
-          payload.set(targetBytes, 0);
-          payload.set(new Uint8Array(chunk), 8);
-          
-          socket.send(payload.buffer);
-          
-          sendFileState.lastBytesSent += slice.size;
-          updateProgressUI(sendFileState.lastBytesSent, file.size, sendFileState, true);
-          
-          if (sendFileState.lastBytesSent >= file.size) {
-            showToast('File transfer completed!', 'success');
-            setTimeout(closeTransferModal, 1500);
-          } else {
-            sendNextChunksWebSocket();
-          }
-        } catch (err) {
-          console.error('WebSocket send error:', err);
-          showToast('Failed to send chunk', 'danger');
-          cancelActiveTransfer();
-        }
-      }
+      sendFileState.readQueue.set(currentIndex, e.target.result);
+      sendOrderedChunksWebSocket();
     };
     reader.readAsArrayBuffer(slice);
   }
+}
+
+function sendOrderedChunksWebSocket() {
+  if (!socket || socket.readyState !== WebSocket.OPEN) return;
   
-  // If buffer is full, schedule a check shortly
-  if (sendFileState.offset < file.size && socket.bufferedAmount >= WS_BUFFER_THRESHOLD) {
-    setTimeout(sendNextChunksWebSocket, 5);
+  const WS_BUFFER_THRESHOLD = 1048576; // 1MB buffer threshold
+  
+  while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
+    if (socket.bufferedAmount >= WS_BUFFER_THRESHOLD) {
+      // Schedule check shortly and pause sending
+      setTimeout(sendOrderedChunksWebSocket, 5);
+      return;
+    }
+    
+    const index = sendFileState.sendIndex;
+    const chunk = sendFileState.readQueue.get(index);
+    sendFileState.readQueue.delete(index);
+    
+    try {
+      // Construct binary payload: 8 bytes targetPeerId + chunk
+      const targetBytes = sendFileState.targetBytes;
+      const payload = new Uint8Array(8 + chunk.byteLength);
+      payload.set(targetBytes, 0);
+      payload.set(new Uint8Array(chunk), 8);
+      
+      socket.send(payload.buffer);
+      sendFileState.sendIndex++;
+      sendFileState.lastBytesSent += chunk.byteLength;
+      
+      updateProgressUI(sendFileState.lastBytesSent, sendFileState.file.size, sendFileState, true);
+      
+      if (sendFileState.lastBytesSent >= sendFileState.file.size) {
+        showToast('File transfer completed!', 'success');
+        setTimeout(closeTransferModal, 1500);
+        return;
+      }
+    } catch (err) {
+      console.error('WebSocket send error:', err);
+      showToast('Failed to send chunk', 'danger');
+      cancelActiveTransfer();
+      return;
+    }
   }
+  
+  sendNextChunksWebSocket();
 }
 
 // WebSocket Relay Reception Logic
 function handleRelayedWebSocketChunk(arrayBuffer) {
-  if (arrayBuffer.byteLength > 8) {
-    const senderBytes = arrayBuffer.slice(0, 8);
-    const senderId = new TextDecoder().decode(senderBytes);
-    const chunk = arrayBuffer.slice(8);
-    
-    processIncomingChunk(senderId, chunk);
-  }
+  processIncomingChunk(receiveFileState.senderPeerId, arrayBuffer);
 }
 
 function processIncomingChunk(peerId, data) {
@@ -664,12 +703,12 @@ function processIncomingChunk(peerId, data) {
   receiveFileState.receivedSize += data.byteLength;
   
   if (receiveFileState.useStream && navigator.serviceWorker && navigator.serviceWorker.controller) {
-    // Feed chunk directly to Service Worker stream
+    // Feed chunk directly to Service Worker stream (using transferable arrayBuffer for zero-copy)
     navigator.serviceWorker.controller.postMessage({
       type: 'WRITE_CHUNK',
       streamId: receiveFileState.streamId,
       chunk: data
-    });
+    }, [data]);
   } else {
     // Fallback: Buffer in memory
     receiveFileState.chunks.push(data);
