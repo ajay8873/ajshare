@@ -179,7 +179,8 @@ function initiatePeerConnection(peerId) {
     pc: pc,
     dc: null,
     name: friendlyName,
-    deviceType: 'Device'
+    deviceType: 'Device',
+    candidateQueue: [] // Queue candidates until remote desc is set
   };
   peers.set(peerId, peerInfo);
   
@@ -216,7 +217,8 @@ function handleIncomingSignal(peerId, signal) {
       pc: pc,
       dc: null,
       name: friendlyName,
-      deviceType: 'Device'
+      deviceType: 'Device',
+      candidateQueue: [] // Queue candidates until remote desc is set
     };
     peers.set(peerId, peerInfo);
     
@@ -243,14 +245,36 @@ function handleIncomingSignal(peerId, signal) {
       .then(answer => pc.setLocalDescription(answer))
       .then(() => {
         sendSignal(peerId, { type: 'answer', sdp: pc.localDescription.sdp });
+        // Process any queued candidates
+        processCandidateQueue(peerInfo);
       })
       .catch(err => console.error('Error handling incoming WebRTC offer:', err));
   } else if (signal.type === 'answer') {
     pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }))
+      .then(() => {
+        // Process any queued candidates
+        processCandidateQueue(peerInfo);
+      })
       .catch(err => console.error('Error setting remote description answer:', err));
   } else if (signal.type === 'candidate') {
-    pc.addIceCandidate(new RTCIceCandidate(signal.candidate))
-      .catch(err => console.error('Error adding ICE candidate:', err));
+    const candidate = new RTCIceCandidate(signal.candidate);
+    if (pc.remoteDescription) {
+      pc.addIceCandidate(candidate)
+        .catch(err => console.error('Error adding ICE candidate:', err));
+    } else {
+      // Queue candidate
+      peerInfo.candidateQueue.push(candidate);
+    }
+  }
+}
+
+function processCandidateQueue(peerInfo) {
+  if (peerInfo.candidateQueue && peerInfo.candidateQueue.length > 0) {
+    peerInfo.candidateQueue.forEach(candidate => {
+      peerInfo.pc.addIceCandidate(candidate)
+        .catch(err => console.error('Error adding queued ICE candidate:', err));
+    });
+    peerInfo.candidateQueue = [];
   }
 }
 
@@ -607,6 +631,8 @@ function setupUIEventListeners() {
         document.getElementById('progress-percent').textContent = '0%';
         document.getElementById('transferred-bytes').textContent = `File: ${file.name} (${formatBytes(file.size)})`;
         document.getElementById('transfer-modal').classList.add('active');
+      } else {
+        showToast('WebRTC connection is still establishing. Please wait a moment and try again.', 'info');
       }
     }
   });
