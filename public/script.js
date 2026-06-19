@@ -2,8 +2,8 @@
 // AJShare Client Logic
 
 // Configuration
-const CHUNK_SIZE = 65536; // 64KB for maximum WebRTC throughput and reliability
-const BUFFER_THRESHOLD = 1048576; // 1MB buffer to prevent WebRTC buffer overflow crashes
+const CHUNK_SIZE = 16384; // 16KB for maximum cross-device compatibility and stability
+const BUFFER_THRESHOLD = 262144; // 256KB buffer to prevent WebRTC buffer overflow crashes
 const PING_INTERVAL = 10000; // 10 seconds — keeps signaling alive even during file picker pauses
 
 // Application State
@@ -553,7 +553,7 @@ function processCandidateQueue(peerInfo) {
 
 function setupDataChannel(peerId, dc) {
   dc.binaryType = 'arraybuffer';
-  dc.bufferedAmountLowThreshold = 262144; // 256KB low threshold to keep buffer filled incrementally
+  dc.bufferedAmountLowThreshold = 65536; // 64KB low threshold to keep buffer filled incrementally
   
   dc.onopen = () => {
     const card = document.getElementById(`peer-${peerId}`);
