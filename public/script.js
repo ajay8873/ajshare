@@ -849,7 +849,9 @@ function setupUIEventListeners() {
       
       const peer = peers.get(sendFileState.targetPeerId);
       
-      if (peer && peer.dc && peer.dc.readyState === 'open') {
+      const forceRelay = document.getElementById('relay-toggle').checked;
+      
+      if (peer && peer.dc && peer.dc.readyState === 'open' && !forceRelay) {
         sendFileState.useWebSocketRelay = false;
         
         // Send meta information to receiver
@@ -861,7 +863,7 @@ function setupUIEventListeners() {
       } else {
         // Fallback: Send meta over WebSocket Signaling channel
         sendFileState.useWebSocketRelay = true;
-        showToast('WebRTC offline. Relaying via WebSocket...', 'info');
+        showToast('Relaying via WebSocket...', 'info');
         
         sendSignal(sendFileState.targetPeerId, {
           type: 'ws-meta',

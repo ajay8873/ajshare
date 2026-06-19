@@ -55,6 +55,16 @@
           <span class="status-text">Disconnected</span>
         </div>
       </div>
+      <div class="relay-toggle-container">
+        <label for="relay-toggle" style="font-size: 13px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M4 17h16M4 12h16M4 7h16"></path></svg>
+          Force WebSocket Relay (Bypass WebRTC)
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="relay-toggle">
+          <span class="slider"></span>
+        </label>
+      </div>
     </section>
 
     <section class="peer-section">
