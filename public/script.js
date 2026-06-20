@@ -2,8 +2,8 @@
 // AJShare Client Logic
 
 // Configuration
-const CHUNK_SIZE = 32768; // 32KB for optimal speed and mobile WebView compatibility
-const BUFFER_THRESHOLD = 1048576; // 1MB buffer to optimize throughput speed
+const CHUNK_SIZE = 131072; // 128KB chunks for high performance WebRTC direct P2P transfer
+const BUFFER_THRESHOLD = 2097152; // 2MB buffer to optimize throughput speed
 const PING_INTERVAL = 10000; // 10 seconds — keeps signaling alive even during file picker pauses
 
 // Application State
@@ -564,7 +564,7 @@ function processCandidateQueue(peerInfo) {
 
 function setupDataChannel(peerId, dc) {
   dc.binaryType = 'arraybuffer';
-  dc.bufferedAmountLowThreshold = 262144; // 256KB low threshold to keep buffer filled incrementally
+  dc.bufferedAmountLowThreshold = 524288; // 512KB low threshold to keep buffer filled incrementally
   
   dc.onopen = () => {
     const card = document.getElementById(`peer-${peerId}`);
@@ -821,7 +821,6 @@ function sendNextChunks() {
   // Pause reading from disk if our memory queue is full or data channel buffer is saturated
   if (dc.bufferedAmount >= BUFFER_THRESHOLD || 
       (sendFileState.readIndex - sendFileState.sendIndex) >= MAX_CONCURRENT_READS) {
-    setTimeout(sendNextChunks, 2);
     return;
   }
   
@@ -858,15 +857,11 @@ function sendOrderedChunks() {
   try {
     const dc = sendFileState.activeChannel;
     if (!dc || dc.readyState !== 'open') {
-      isSendingChunks = false;
       return;
     }
     
     while (sendFileState.readQueue.has(sendFileState.sendIndex)) {
       if (dc.bufferedAmount >= BUFFER_THRESHOLD) {
-        // Schedule a poll check shortly to resume sending when buffer drains
-        isSendingChunks = false;
-        setTimeout(sendOrderedChunks, 2);
         return;
       }
       
@@ -885,14 +880,12 @@ function sendOrderedChunks() {
           showToast('File transfer completed!', 'success');
           addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'completed');
           setTimeout(closeTransferModal, 1500);
-          isSendingChunks = false;
           return;
         }
       } catch (err) {
         console.error('DataChannel send error:', err);
         showToast('Failed to send chunk', 'danger');
         cancelActiveTransfer();
-        isSendingChunks = false;
         return;
       }
     }
