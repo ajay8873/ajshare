@@ -58,6 +58,10 @@ function navigateTo(viewName, pushState = true) {
   
   currentView = viewName;
   
+  if (viewName === 'room') {
+    generateQRCode();
+  }
+  
   const headerRoomPill = document.getElementById('header-room-pill');
   if (headerRoomPill) {
     if (viewName === 'room' || viewName === 'peers') {
@@ -237,6 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data && data.ip) {
           localIpAddress = data.ip;
           console.log('Phone local IP:', localIpAddress);
+          generateQRCode();
         }
       })
       .catch(err => {
@@ -252,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data && data.ip) {
           localIpAddress = data.ip;
           console.log('PC LAN IP (from phone server):', localIpAddress);
+          generateQRCode();
         }
       })
       .catch(err => {
