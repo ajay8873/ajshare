@@ -3,7 +3,7 @@
 
 // Configuration
 const CHUNK_SIZE = 65536; // 64KB chunks for optimal WebRTC DataChannel speed and compatibility
-const BUFFER_THRESHOLD = 16777216; // 16MB buffer to keep the WebRTC pipeline fully saturated on high-speed networks
+const BUFFER_THRESHOLD = 1048576; // 1MB buffer to optimize throughput speed without overflowing browser SCTP stack
 const PING_INTERVAL = 10000; // 10 seconds — keeps signaling alive even during file picker pauses
 
 // Application State
@@ -694,7 +694,7 @@ function processCandidateQueue(peerInfo) {
 
 function setupDataChannel(peerId, dc) {
   dc.binaryType = 'arraybuffer';
-  dc.bufferedAmountLowThreshold = 4194304; // 4MB low threshold to keep buffer filled incrementally
+  dc.bufferedAmountLowThreshold = 262144; // 256KB low threshold to keep buffer filled incrementally
   
   dc.onopen = () => {
     const card = document.getElementById(`peer-${peerId}`);
@@ -1010,6 +1010,12 @@ function sendOrderedChunks() {
           return;
         }
       } catch (err) {
+        // Handle buffer full state gracefully by restoring the chunk and pausing
+        if (err.name === 'InvalidStateError' || err.code === 11 || err.message.toLowerCase().includes('buffer') || err.message.toLowerCase().includes('full')) {
+          console.warn('DataChannel buffer full, backing off and waiting for drain event...', err);
+          sendFileState.readQueue.set(index, chunk);
+          return;
+        }
         console.error('DataChannel send error:', err);
         showToast('Failed to send chunk', 'danger');
         cancelActiveTransfer();
