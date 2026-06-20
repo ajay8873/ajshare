@@ -2,8 +2,8 @@
 // AJShare Client Logic
 
 // Configuration
-const CHUNK_SIZE = 131072; // 128KB chunks for high performance WebRTC direct P2P transfer
-const BUFFER_THRESHOLD = 2097152; // 2MB buffer to optimize throughput speed
+const CHUNK_SIZE = 65536; // 64KB chunks for optimal WebRTC DataChannel speed and compatibility
+const BUFFER_THRESHOLD = 16777216; // 16MB buffer to keep the WebRTC pipeline fully saturated on high-speed networks
 const PING_INTERVAL = 10000; // 10 seconds — keeps signaling alive even during file picker pauses
 
 // Application State
@@ -18,7 +18,7 @@ let localIpAddress = '';
 let pendingSignals = [];
 
 // Navigation & Views State
-const views = ['home', 'instructions', 'room', 'peers'];
+const views = ['home', 'room', 'peers']; // Removed instructions view
 let currentView = 'home';
 let html5QrcodeScanner = null;
 
@@ -694,7 +694,7 @@ function processCandidateQueue(peerInfo) {
 
 function setupDataChannel(peerId, dc) {
   dc.binaryType = 'arraybuffer';
-  dc.bufferedAmountLowThreshold = 524288; // 512KB low threshold to keep buffer filled incrementally
+  dc.bufferedAmountLowThreshold = 4194304; // 4MB low threshold to keep buffer filled incrementally
   
   dc.onopen = () => {
     const card = document.getElementById(`peer-${peerId}`);
@@ -946,7 +946,7 @@ function sendNextChunks() {
   
   if (!dc || dc.readyState !== 'open') return;
   
-  const MAX_CONCURRENT_READS = 16;
+  const MAX_CONCURRENT_READS = 64; // Increased concurrency to match Nearby Share capability
   
   // Pause reading from disk if our memory queue is full or data channel buffer is saturated
   if (dc.bufferedAmount >= BUFFER_THRESHOLD || 
@@ -964,19 +964,16 @@ function sendNextChunks() {
     const slice = file.slice(currentOffset, currentOffset + CHUNK_SIZE);
     sendFileState.offset += slice.size;
     
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const buffer = event.target.result;
+    // Using native slice.arrayBuffer() is much faster and reduces garbage collection latency
+    slice.arrayBuffer().then((buffer) => {
       sendFileState.activeReads--;
       sendFileState.readQueue.set(currentIndex, buffer);
       sendOrderedChunks();
-    };
-    reader.onerror = (err) => {
+    }).catch((err) => {
       console.error('File read error:', err);
       sendFileState.activeReads--;
       cancelActiveTransfer();
-    };
-    reader.readAsArrayBuffer(slice);
+    });
   }
 }
 
@@ -1595,18 +1592,10 @@ function updateQRTabSlider() {
 }
 
 function setupUIEventListeners() {
-  // Start Sharing Button
+  // Start Sharing / Understood & Start Button
   const startSharingBtn = document.getElementById('start-sharing-btn');
   if (startSharingBtn) {
     startSharingBtn.addEventListener('click', () => {
-      navigateTo('instructions');
-    });
-  }
-
-  // Understood & Continue Button
-  const understoodBtn = document.getElementById('instructions-understood-btn');
-  if (understoodBtn) {
-    understoodBtn.addEventListener('click', () => {
       navigateTo('room');
     });
   }
