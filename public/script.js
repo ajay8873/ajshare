@@ -19,6 +19,17 @@ let pendingSignals = [];
 
 // App & OS Environment
 const isCapacitor = !!window.Capacitor || (window.location.hostname === 'localhost' && !window.location.port);
+
+// Generate friendly peer names based on user agent or random list
+const ADJECTIVES = ['Sleek', 'Quantum', 'Swift', 'Apex', 'Cyber', 'Neon', 'Cosmic', 'Solar', 'Lunar', 'Alpha', 'Velocity'];
+const DEVICES = ['Falcon', 'Panther', 'Phoenix', 'Cheetah', 'Eagle', 'Orca', 'Wolf', 'Lynx', 'Stellar', 'Rover'];
+
+function generateFriendlyName() {
+  const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
+  const dev = DEVICES[Math.floor(Math.random() * DEVICES.length)];
+  return `${adj} ${dev}`;
+}
+
 let myFriendlyName = generateFriendlyName();
 
 // Navigation & Views State
@@ -183,15 +194,6 @@ let receiveFileState = {
   finalized: false  // Guard against double-finalization
 };
 
-// Generate friendly peer names based on user agent or random list
-const ADJECTIVES = ['Sleek', 'Quantum', 'Swift', 'Apex', 'Cyber', 'Neon', 'Cosmic', 'Solar', 'Lunar', 'Alpha', 'Velocity'];
-const DEVICES = ['Falcon', 'Panther', 'Phoenix', 'Cheetah', 'Eagle', 'Orca', 'Wolf', 'Lynx', 'Stellar', 'Rover'];
-
-function generateFriendlyName() {
-  const adj = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
-  const dev = DEVICES[Math.floor(Math.random() * DEVICES.length)];
-  return `${adj} ${dev}`;
-}
 
 function getDeviceType() {
   const ua = navigator.userAgent;
