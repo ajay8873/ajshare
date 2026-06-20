@@ -2104,7 +2104,10 @@ function generateQRCode() {
   const canvas = document.getElementById('qr-code-canvas');
   if (!canvas) return;
 
-  const targetUrl = `https://ajshare.pages.dev/#${roomId}`;
+  let targetUrl = `https://ajshare.pages.dev/#${roomId}`;
+  if (qrMode === 'local' && localIpAddress) {
+    targetUrl = `http://${localIpAddress}:8080/#${roomId}`;
+  }
   
   qr = new QRious({
     element: canvas,
