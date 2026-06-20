@@ -245,6 +245,20 @@ body {
   margin-right: 4px;
 }
 
+.banner-list {
+  margin-top: 6px;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.banner-list li {
+  font-size: 13.5px;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
 .banner-warning {
   display: flex;
   align-items: flex-start;
