@@ -17,7 +17,7 @@
   </div>
 
   <header class="app-header">
-    <div class="logo">
+    <div class="logo" style="cursor: pointer;" id="header-logo">
       <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -26,7 +26,7 @@
       <h1>AJShare</h1>
       <span class="badge">Cloudflare P2P</span>
     </div>
-    <div class="room-share-container">
+    <div class="room-share-container" id="header-room-pill" style="display: none;">
       <span class="room-label">Room:</span>
       <div class="room-pill">
         <span id="room-id-display">Loading...</span>
@@ -37,138 +37,202 @@
     </div>
   </header>
 
-  <!-- Instruction Banner -->
-  <section class="instruction-banner-container">
-    <div class="instruction-banner">
-      <div class="banner-body">
-        <div class="banner-icon-container">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" class="banner-info-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+  <main class="app-main">
+    
+    <!-- STEP 1: Home View -->
+    <section class="view-panel active" id="view-home">
+      <div class="hero-section card">
+        <h2>P2P Local & Remote File Sharing</h2>
+        <p class="hero-desc">Share large files directly peer-to-peer (P2P) between <strong>Android, iOS, and PC</strong> on the same local network, or send them to remote users anywhere using secure Cloudflare Workers signaling.</p>
+        
+        <div style="margin-top: 28px; text-align: center;">
+          <button id="start-sharing-btn" class="btn btn-primary btn-lg" style="padding: 14px 32px; font-size: 16px; border-radius: var(--radius-lg); min-height: 52px;">
+            Start Sharing
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 8px; display: inline-block; vertical-align: middle;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+          </button>
         </div>
-        <div class="banner-message">
-          <span class="banner-title">How to use:</span>
-          <ul class="banner-list">
-            <li>Turn on <strong>Hotspot</strong> on one device and connect to it through <strong>Wi-Fi</strong> on the other device for local direct P2P transfer.</li>
-            <li>Enter the <strong>Room ID</strong> above or scan the <strong>QR code</strong> to join.</li>
+      </div>
+
+      <!-- Privacy & Permissions Info Card -->
+      <div class="card privacy-card" style="margin-top: 24px;">
+        <h3 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--primary);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Permissions & Privacy Information
+        </h3>
+        <p style="font-size: 13.5px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 16px;">
+          AJShare respects your privacy. We never track, inspect, or store any of your data or files on any server. Files are streamed completely peer-to-peer.
+        </p>
+        <div class="permissions-list">
+          <div class="permission-item">
+            <span class="permission-name">Camera Permission</span>
+            <span class="permission-desc">Required to scan the room QR code directly using the built-in scanner to join rooms instantly.</span>
+          </div>
+          <div class="permission-item">
+            <span class="permission-name">Microphone Permission (Optional)</span>
+            <span class="permission-desc">Used on browsers to temporarily bypass mDNS anonymization. This lets us discover raw local IPs so you get high-speed local transfer rates without TURN relay.</span>
+          </div>
+          <div class="permission-item">
+            <span class="permission-name">Zero Server Storage</span>
+            <span class="permission-desc">Your files never touch the cloud or database. The signaling server is only used to connect your devices.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: Instructions & Warning View -->
+    <section class="view-panel" id="view-instructions">
+      <div class="card instruction-banner-card">
+        <div class="title-group" style="margin-bottom: 16px;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--primary);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+          <h3>How to Share Files (Read Carefully)</h3>
+        </div>
+        
+        <div class="instruction-body">
+          <ul class="banner-list" style="margin-bottom: 20px; padding-left: 20px;">
+            <li style="margin-bottom: 12px;"><strong>For High-Speed Local P2P Transfer:</strong> Turn on mobile hotspot on one device and connect the other device to it through Wi-Fi. (This enables direct local file sharing up to 10-15+ Mbps without using internet data).</li>
+            <li style="margin-bottom: 12px;"><strong>For Remote Transfer:</strong> If devices are not connected via Hotspot/same Wi-Fi, the app will fallback to WebSocket Relay mode to transfer files over the internet.</li>
           </ul>
         </div>
-      </div>
-      <div class="banner-warning">
-        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" class="banner-warn-icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-        <span class="warn-message"><strong>Warning:</strong> Transferring via WebSocket Relay mode will consume internet data if devices are not connected through hotspot or on the same Wi-Fi.</span>
-      </div>
-    </div>
-  </section>
+        
+        <div class="banner-warning" style="margin-bottom: 24px;">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" class="banner-warn-icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          <span class="warn-message" style="font-size: 13.5px;"><strong>Warning:</strong> WebSocket Relay mode transfers files over the internet and WILL consume your mobile/internet data plan. Connecting through a local hotspot is highly recommended!</span>
+        </div>
 
-  <main class="app-main">
-    <!-- Join Room & Quick Share (QR) Container -->
-    <section class="card join-room-card">
-      <div class="join-left-col">
-        <div class="title-group">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg>
-          <h3>Join or Share Room</h3>
-        </div>
-        <p class="join-instruction">Enter Room ID to join room or scan the QR code with another device.</p>
-        
-        <div class="join-input-group" style="margin-top: 16px;">
-          <input type="text" id="join-room-input" placeholder="Enter Room ID">
-          <button id="join-room-btn" class="btn btn-primary">Join Room</button>
-        </div>
-        
-        <div class="apk-download-group">
-          <a href="/ajshare.apk" download class="btn btn-secondary btn-sm">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            Download Android App (APK)
-          </a>
-        </div>
-      </div>
-      
-      <div class="join-right-col">
-        <div class="qr-header" style="margin-bottom: 12px; text-align: center;">
-          <h3>Quick Share QR</h3>
-          <div class="qr-toggle-tabs">
-            <div class="qr-tab-slider"></div>
-            <button id="qr-tab-local" class="qr-tab active">Local (Hotspot/Wi-Fi)</button>
-            <button id="qr-tab-internet" class="qr-tab">Internet (Remote)</button>
-          </div>
-        </div>
-        <div class="qr-body">
-          <div class="qr-container">
-            <canvas id="qr-code-canvas"></canvas>
-          </div>
-          <div class="qr-link-display" id="qr-link-text">Loading link...</div>
+        <div style="text-align: center;">
+          <button id="instructions-understood-btn" class="btn btn-primary btn-wide" style="padding: 12px 28px; max-width: 280px; margin: 0 auto; display: block;">Understood & Continue</button>
         </div>
       </div>
     </section>
 
-    <div class="top-row">
-      <!-- Screen 1: Peer discovery & Status -->
-      <section class="card status-card">
-        <div class="status-header">
-          <div class="user-identity">
-            <div class="avatar-ring pulsing">
-              <div class="avatar" id="my-avatar">AJ</div>
-            </div>
-            <div>
-              <h3>Your Device</h3>
-              <p id="my-peer-id" class="peer-sub">Connecting to signaling server...</p>
-            </div>
+    <!-- STEP 3: Room Setup Screen -->
+    <section class="view-panel" id="view-room">
+      <!-- Join Room & Quick Share (QR) Container -->
+      <div class="card join-room-card">
+        <div class="join-left-col">
+          <div class="title-group">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" style="color: var(--primary);"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg>
+            <h3>Join or Share Room</h3>
           </div>
-          <div class="connection-indicator offline" id="connection-status">
-            <span class="dot"></span>
-            <span class="status-text">Disconnected</span>
+          <p class="join-instruction">Enter Room ID to join room, scan the QR code, or click the camera button to scan.</p>
+          
+          <div class="join-input-group" style="margin-top: 16px; display: flex; gap: 8px;">
+            <input type="text" id="join-room-input" placeholder="Enter Room ID" style="flex: 1;">
+            <button id="join-room-btn" class="btn btn-primary">Join Room</button>
+            <button id="start-scan-btn" class="btn btn-secondary" title="Scan QR Code" style="padding: 0 12px; display: flex; align-items: center; justify-content: center; min-width: 44px;">
+              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+            </button>
+          </div>
+          
+          <div class="apk-download-group" style="margin-top: 24px;">
+            <a href="/ajshare.apk" download class="btn btn-secondary btn-sm">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--success);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Download Android App (APK)
+            </a>
           </div>
         </div>
-        <div class="relay-toggle-container">
-          <label for="relay-toggle" style="font-size: 13px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; cursor: pointer;">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M4 17h16M4 12h16M4 7h16"></path></svg>
-            Force WebSocket Relay (Bypass WebRTC)
-          </label>
-          <label class="switch">
-            <input type="checkbox" id="relay-toggle">
-            <span class="slider"></span>
-          </label>
+        
+        <div class="join-right-col">
+          <div class="qr-header" style="margin-bottom: 12px; text-align: center;">
+            <h3>Quick Share QR</h3>
+            <div class="qr-toggle-tabs">
+              <div class="qr-tab-slider"></div>
+              <button id="qr-tab-local" class="qr-tab active">Local (Hotspot/Wi-Fi)</button>
+              <button id="qr-tab-internet" class="qr-tab">Internet (Remote)</button>
+            </div>
+          </div>
+          <div class="qr-body">
+            <div class="qr-container">
+              <canvas id="qr-code-canvas"></canvas>
+            </div>
+            <div class="qr-link-display" id="qr-link-text">Loading link...</div>
+          </div>
         </div>
-        <div class="relay-toggle-container" style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
-          <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-            Optimize Local Direct P2P (Bypass mDNS)
-          </label>
-          <button id="optimize-p2p-btn" class="btn btn-secondary btn-sm" style="min-height: unset; padding: 6px 12px; font-size: 11px;">Enable</button>
+      </div>
+
+      <div class="top-row" style="margin-top: 24px;">
+        <!-- Screen 1: Peer discovery & Status -->
+        <section class="card status-card">
+          <div class="status-header">
+            <div class="user-identity">
+              <div class="avatar-ring pulsing">
+                <div class="avatar" id="my-avatar">AJ</div>
+              </div>
+              <div>
+                <h3>Your Device</h3>
+                <p id="my-peer-id" class="peer-sub">Connecting to signaling server...</p>
+              </div>
+            </div>
+            <div class="connection-indicator offline" id="connection-status">
+              <span class="dot"></span>
+              <span class="status-text">Disconnected</span>
+            </div>
+          </div>
+          <div class="relay-toggle-container" style="margin-top: 16px;">
+            <label for="relay-toggle" style="font-size: 13px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" style="color: var(--primary);"><path d="M4 17h16M4 12h16M4 7h16"></path></svg>
+              Force WebSocket Relay (Bypass WebRTC)
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="relay-toggle">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="relay-toggle-container" style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 12px;">
+            <label style="font-size: 13px; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
+              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+              Optimize Local Direct P2P (Bypass mDNS)
+            </label>
+            <button id="optimize-p2p-btn" class="btn btn-secondary btn-sm" style="min-height: unset; padding: 6px 12px; font-size: 11px;">Enable</button>
+          </div>
+        </section>
+      </div>
+
+      <!-- Peer discovery state helper (reminds user to wait/invite) -->
+      <div class="card" style="margin-top: 24px; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 32px 20px;">
+        <div class="empty-icon-container">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="empty-icon" style="color: var(--primary);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        </div>
+        <h4>Waiting for Connection...</h4>
+        <p style="color: var(--text-secondary); font-size: 14px; max-width: 420px; margin-top: 6px; line-height: 1.5;">Share the Room ID or QR code link with another device. Once a peer joins this room, the transfer interface will automatically unlock.</p>
+      </div>
+    </section>
+
+    <!-- STEP 4: Active Peers Screen -->
+    <section class="view-panel" id="view-peers">
+      <div class="peer-section">
+        <div class="section-title-bar">
+          <h2>Active Peers</h2>
+          <span class="peer-count-badge" id="peer-count">0 connected</span>
+        </div>
+
+        <!-- Grid of active peers -->
+        <div class="peer-grid" id="peer-grid">
+          <div class="empty-peers-state" id="empty-state">
+            <div class="empty-icon-container">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="empty-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </div>
+            <h4>No other devices in this room</h4>
+            <p>Share the room link with another phone, tablet, or laptop to start transferring files directly.</p>
+            <button id="invite-btn" class="btn btn-secondary">Copy Room Link</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Section -->
+      <section class="card history-section" style="margin-top: 32px;">
+        <div class="section-title-bar">
+          <h2>Transfer History</h2>
+          <button id="clear-history-btn" class="btn-muted-action">Clear History</button>
+        </div>
+        <div class="history-list" id="history-list">
+          <div class="empty-history" id="empty-history">
+            <p>No transfers in this session yet.</p>
+          </div>
         </div>
       </section>
-    </div>
-
-    <section class="peer-section">
-      <div class="section-title-bar">
-        <h2>Active Peers</h2>
-        <span class="peer-count-badge" id="peer-count">0 connected</span>
-      </div>
-
-      <!-- Grid of active peers -->
-      <div class="peer-grid" id="peer-grid">
-        <div class="empty-peers-state" id="empty-state">
-          <div class="empty-icon-container">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="empty-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-          </div>
-          <h4>No other devices in this room</h4>
-          <p>Share the room link with another phone, tablet, or laptop to start transferring files directly.</p>
-          <button id="invite-btn" class="btn btn-secondary">Copy Room Link</button>
-        </div>
-      </div>
     </section>
 
-    <!-- Screen 3: History -->
-    <section class="card history-section">
-      <div class="section-title-bar">
-        <h2>Transfer History</h2>
-        <button id="clear-history-btn" class="btn-muted-action">Clear History</button>
-      </div>
-      <div class="history-list" id="history-list">
-        <div class="empty-history" id="empty-history">
-          <p>No transfers in this session yet.</p>
-        </div>
-      </div>
-    </section>
   </main>
 
   <!-- Drag and drop hidden/explicit overlay for sending files -->
@@ -241,6 +305,23 @@
     </div>
   </div>
 
+  <!-- MODAL: QR Scanner -->
+  <div class="modal-backdrop" id="scanner-modal">
+    <div class="modal-content glass-card">
+      <div class="modal-header">
+        <h3>Scan Room QR Code</h3>
+      </div>
+      <div class="modal-body">
+        <div id="qr-reader-container" style="width: 100%; border-radius: var(--radius-md); overflow: hidden; background: #000; position: relative; min-height: 250px;">
+          <div id="qr-reader" style="width: 100%;"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="close-scanner-btn" class="btn btn-danger btn-wide">Cancel Scan</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION -->
   <div id="toast-container" class="toast-container"></div>
 
@@ -248,6 +329,7 @@
     <p>Direct peer-to-peer connection encrypted via WebRTC. Files never touch any server.</p>
   </footer>
 
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
   <script src="script.js"></script>
 </body>

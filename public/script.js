@@ -17,6 +17,113 @@ let reconnectTimeoutId = null;
 let localIpAddress = '';
 let pendingSignals = [];
 
+// Navigation & Views State
+const views = ['home', 'instructions', 'room', 'peers'];
+let currentView = 'home';
+let html5QrcodeScanner = null;
+
+function navigateTo(viewName, pushState = true) {
+  if (!views.includes(viewName)) return;
+  
+  // Stop scanner when navigating away from room screen
+  if (viewName !== 'room') {
+    try { stopQRScanner(); } catch(e){}
+  }
+  
+  // Hide all panels
+  document.querySelectorAll('.view-panel').forEach(el => {
+    el.classList.remove('active');
+  });
+  
+  // Show target panel
+  const targetEl = document.getElementById(`view-${viewName}`);
+  if (targetEl) {
+    targetEl.classList.add('active');
+  }
+  
+  currentView = viewName;
+  
+  const headerRoomPill = document.getElementById('header-room-pill');
+  if (headerRoomPill) {
+    if (viewName === 'room' || viewName === 'peers') {
+      headerRoomPill.style.display = 'flex';
+    } else {
+      headerRoomPill.style.display = 'none';
+    }
+  }
+
+  if (pushState) {
+    history.pushState({ view: viewName }, '', `#${viewName}`);
+  }
+}
+
+// Window popstate handler for back/forward support
+window.addEventListener('popstate', (event) => {
+  if (event.state && event.state.view) {
+    navigateTo(event.state.view, false);
+  } else {
+    navigateTo('home', false);
+  }
+});
+
+// QR Scanner Controller
+function startQRScanner() {
+  document.getElementById('scanner-modal').classList.add('active');
+  
+  try {
+    html5QrcodeScanner = new Html5Qrcode("qr-reader");
+    const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+    
+    html5QrcodeScanner.start(
+      { facingMode: "environment" },
+      config,
+      (decodedText) => {
+        console.log("Scanned QR code content:", decodedText);
+        try {
+          let scannedRoomId = '';
+          if (decodedText.includes('#')) {
+            scannedRoomId = decodedText.split('#').pop().trim();
+          } else {
+            scannedRoomId = decodedText.trim();
+          }
+          
+          if (scannedRoomId) {
+            showToast(`Joined room: ${scannedRoomId}`);
+            stopQRScanner();
+            window.location.hash = scannedRoomId;
+            window.location.reload();
+          }
+        } catch (err) {
+          console.error("Failed to parse scanned URL:", err);
+        }
+      },
+      (errorMessage) => {
+        // parse error, ignore
+      }
+    ).catch(err => {
+      console.error("Camera start failed:", err);
+      showToast("Camera access failed. Please grant permission.", "danger");
+      stopQRScanner();
+    });
+  } catch (err) {
+    console.error("Scanner init failed:", err);
+    stopQRScanner();
+  }
+}
+
+// Stop Scanner
+function stopQRScanner() {
+  document.getElementById('scanner-modal').classList.remove('active');
+  if (html5QrcodeScanner) {
+    html5QrcodeScanner.stop().then(() => {
+      html5QrcodeScanner = null;
+    }).catch(err => {
+      console.warn("Failed to stop QR scanner:", err);
+      html5QrcodeScanner = null;
+    });
+  }
+}
+
 // Transfer generation counter — increments on every reset so stale async
 // callbacks from a previous transfer can detect they are outdated and bail out.
 let transferGeneration = 0;
@@ -158,18 +265,22 @@ window.addEventListener('focus', () => {
   }
 });
 
-// Setup room hash
+// Setup room hash & Views routing
 function setupRoom() {
   let hash = window.location.hash;
-  if (!hash || hash === '#') {
-    // Generate random room id
-    roomId = Math.random().toString(36).substring(2, 8);
-    window.location.hash = roomId;
-  } else {
+  if (hash && hash !== '#' && !views.includes(hash.substring(1))) {
+    // Joining room directly via shared URL
     roomId = hash.substring(1);
+    document.getElementById('room-id-display').textContent = roomId;
+    navigateTo('instructions', false);
+    history.replaceState({ view: 'instructions' }, '', '#instructions');
+  } else {
+    // Default flow: Start with home view
+    roomId = Math.random().toString(36).substring(2, 8);
+    document.getElementById('room-id-display').textContent = roomId;
+    navigateTo('home', false);
+    history.replaceState({ view: 'home' }, '', '#home');
   }
-  
-  document.getElementById('room-id-display').textContent = roomId;
 }
 
 // Connect to signaling server
@@ -1358,6 +1469,7 @@ function addPeerCardToGrid(peerId, name) {
   
   updatePeerConnectionBadge(peerId);
   updatePeerCount();
+  navigateTo('peers');
 }
 
 function updatePeerConnectionBadge(peerId) {
@@ -1413,6 +1525,7 @@ function removePeer(peerId) {
     if (emptyState) {
       emptyState.style.display = 'flex';
     }
+    navigateTo('room');
   }
 }
 
@@ -1463,6 +1576,45 @@ function updateQRTabSlider() {
 }
 
 function setupUIEventListeners() {
+  // Start Sharing Button
+  const startSharingBtn = document.getElementById('start-sharing-btn');
+  if (startSharingBtn) {
+    startSharingBtn.addEventListener('click', () => {
+      navigateTo('instructions');
+    });
+  }
+
+  // Understood & Continue Button
+  const understoodBtn = document.getElementById('instructions-understood-btn');
+  if (understoodBtn) {
+    understoodBtn.addEventListener('click', () => {
+      navigateTo('room');
+    });
+  }
+
+  // Header Logo click returns to Home
+  const headerLogo = document.getElementById('header-logo');
+  if (headerLogo) {
+    headerLogo.addEventListener('click', () => {
+      navigateTo('home');
+    });
+  }
+
+  // Camera Scan QR Code Buttons
+  const startScanBtn = document.getElementById('start-scan-btn');
+  if (startScanBtn) {
+    startScanBtn.addEventListener('click', () => {
+      startQRScanner();
+    });
+  }
+
+  const closeScannerBtn = document.getElementById('close-scanner-btn');
+  if (closeScannerBtn) {
+    closeScannerBtn.addEventListener('click', () => {
+      stopQRScanner();
+    });
+  }
+
   // Join Room Handler
   const joinBtn = document.getElementById('join-room-btn');
   const joinInput = document.getElementById('join-room-input');
