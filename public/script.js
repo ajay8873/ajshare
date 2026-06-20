@@ -1144,7 +1144,12 @@ function updateProgressUI(current, total, state, isSender) {
   updateLiveConnectionModeBadge(isSender);
 }
 
+let lastLiveBadgeUpdate = 0;
 async function updateLiveConnectionModeBadge(isSender) {
+  const now = Date.now();
+  if (now - lastLiveBadgeUpdate < 2000) return;
+  lastLiveBadgeUpdate = now;
+
   const badge = document.getElementById('connection-mode-badge');
   if (!badge) return;
 
