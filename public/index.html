@@ -53,6 +53,18 @@
         </div>
       </div>
 
+      <!-- APK Download Banner directly below hero section -->
+      <div class="card apk-download-banner" style="margin-top: 24px; text-align: center; border-color: rgba(16, 185, 129, 0.2); background: radial-gradient(circle at center, rgba(16, 185, 129, 0.04), transparent);">
+        <h3 style="font-size: 16px; margin-bottom: 8px; color: var(--text-primary); display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--success);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+          AJShare Android Application
+        </h3>
+        <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">Get optimized speeds, raw local IP discovery, and background transfer stability on your Android device.</p>
+        <a href="/ajshare.apk" download class="btn btn-primary btn-sm" style="min-height: 40px; background: var(--success); box-shadow: 0 4px 12px var(--success-glow); max-width: 250px; margin: 0 auto; display: flex; border: none; color: white;">
+          Download Android App (APK)
+        </a>
+      </div>
+
       <!-- Privacy & Permissions Info Card -->
       <div class="card privacy-card" style="margin-top: 24px;">
         <h3 style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
@@ -107,50 +119,9 @@
 
     <!-- STEP 3: Room Setup Screen -->
     <section class="view-panel" id="view-room">
-      <!-- Join Room & Quick Share (QR) Container -->
-      <div class="card join-room-card">
-        <div class="join-left-col">
-          <div class="title-group">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" style="color: var(--primary);"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg>
-            <h3>Join or Share Room</h3>
-          </div>
-          <p class="join-instruction">Enter Room ID to join room, scan the QR code, or click the camera button to scan.</p>
-          
-          <div class="join-input-group" style="margin-top: 16px; display: flex; gap: 8px;">
-            <input type="text" id="join-room-input" placeholder="Enter Room ID" style="flex: 1;">
-            <button id="join-room-btn" class="btn btn-primary">Join Room</button>
-            <button id="start-scan-btn" class="btn btn-secondary" title="Scan QR Code" style="padding: 0 12px; display: flex; align-items: center; justify-content: center; min-width: 44px;">
-              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="color: var(--primary);"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-            </button>
-          </div>
-          
-          <div class="apk-download-group" style="margin-top: 24px;">
-            <a href="/ajshare.apk" download class="btn btn-secondary btn-sm">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--success);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-              Download Android App (APK)
-            </a>
-          </div>
-        </div>
-        
-        <div class="join-right-col">
-          <div class="qr-header" style="margin-bottom: 12px; text-align: center;">
-            <h3>Quick Share QR</h3>
-            <div class="qr-toggle-tabs">
-              <div class="qr-tab-slider"></div>
-              <button id="qr-tab-local" class="qr-tab active">Local (Hotspot/Wi-Fi)</button>
-              <button id="qr-tab-internet" class="qr-tab">Internet (Remote)</button>
-            </div>
-          </div>
-          <div class="qr-body">
-            <div class="qr-container">
-              <canvas id="qr-code-canvas"></canvas>
-            </div>
-            <div class="qr-link-display" id="qr-link-text">Loading link...</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="top-row" style="margin-top: 24px;">
+      
+      <!-- Device Container at top -->
+      <div class="top-row" style="margin-bottom: 24px;">
         <!-- Screen 1: Peer discovery & Status -->
         <section class="card status-card">
           <div class="status-header">
@@ -186,6 +157,63 @@
             <button id="optimize-p2p-btn" class="btn btn-secondary btn-sm" style="min-height: unset; padding: 6px 12px; font-size: 11px;">Enable</button>
           </div>
         </section>
+      </div>
+
+      <!-- Connections Panel: Split into Room ID vs QR Code -->
+      <div class="card join-room-card">
+        <div class="join-sections-container">
+          
+          <!-- Section A: Room ID Method -->
+          <div class="join-section">
+            <div class="title-group">
+              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--primary);"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3"/></svg>
+              <h3>Connect via Room ID</h3>
+            </div>
+            <p class="join-instruction">Share your Room ID with another device, or enter a Room ID below to join.</p>
+            
+            <div class="join-input-group" style="margin-top: 16px; display: flex; gap: 8px;">
+              <input type="text" id="join-room-input" placeholder="Enter Room ID" style="flex: 1;">
+              <button id="join-room-btn" class="btn btn-primary">Join Room</button>
+            </div>
+          </div>
+
+          <!-- OR Divider -->
+          <div class="join-or-divider">
+            <span class="or-badge">OR</span>
+          </div>
+
+          <!-- Section B: QR Code Method -->
+          <div class="join-section">
+            <div class="title-group">
+              <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--primary);"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              <h3>Connect via QR Code</h3>
+            </div>
+            
+            <p class="join-instruction" style="margin-bottom: 16px;">Scan the QR code of another device to connect instantly.</p>
+            
+            <button id="start-scan-btn" class="btn btn-primary btn-wide" style="min-height: 44px; display: flex; gap: 8px; margin-bottom: 24px; color: white; border: none; justify-content: center; align-items: center;">
+              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+              Open Camera Scanner
+            </button>
+            
+            <p class="join-instruction" style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 16px; margin-bottom: 12px;"><strong>OR</strong> scan this QR code with another device to join this room:</p>
+            
+            <div class="qr-body">
+              <div class="qr-header" style="margin-bottom: 12px; text-align: center;">
+                <div class="qr-toggle-tabs">
+                  <div class="qr-tab-slider"></div>
+                  <button id="qr-tab-local" class="qr-tab active">Local (Hotspot/Wi-Fi)</button>
+                  <button id="qr-tab-internet" class="qr-tab">Internet (Remote)</button>
+                </div>
+              </div>
+              <div class="qr-container">
+                <canvas id="qr-code-canvas"></canvas>
+              </div>
+              <div class="qr-link-display" id="qr-link-text">Loading link...</div>
+            </div>
+          </div>
+
+        </div>
       </div>
 
       <!-- Peer discovery state helper (reminds user to wait/invite) -->

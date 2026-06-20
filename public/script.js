@@ -68,6 +68,25 @@ window.addEventListener('popstate', (event) => {
 
 // QR Scanner Controller
 function startQRScanner() {
+  // First explicitly request camera permission to trigger native prompt on Android Webview
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        // Stop the temp stream immediately
+        stream.getTracks().forEach(track => track.stop());
+        // Proceed with scanner launch
+        launchScanner();
+      })
+      .catch((err) => {
+        console.error("Camera permission denied:", err);
+        showToast("Camera permission denied. Please enable camera access.", "danger");
+      });
+  } else {
+    launchScanner();
+  }
+}
+
+function launchScanner() {
   document.getElementById('scanner-modal').classList.add('active');
   
   try {
