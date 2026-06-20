@@ -10,12 +10,16 @@ const PING_INTERVAL = 10000; // 10 seconds — keeps signaling alive even during
 let roomId = '';
 let socket = null;
 let myId = '';
-let peers = new Map(); // peerId -> { pc, dc, name, deviceType }
+let peers = new Map(); // peerId -> { pc, dc, name, deviceType, isCapacitor }
 let pingIntervalId = null;
 let qrMode = 'local'; // 'local' or 'internet'
 let reconnectTimeoutId = null;
 let localIpAddress = '';
 let pendingSignals = [];
+
+// App & OS Environment
+const isCapacitor = !!window.Capacitor || (window.location.hostname === 'localhost' && !window.location.port);
+let myFriendlyName = generateFriendlyName();
 
 // Navigation & Views State
 const views = ['home', 'room', 'peers']; // Removed instructions view
@@ -401,7 +405,7 @@ function handleSignalingMessage(msg) {
     case 'welcome':
       myId = msg.clientId;
       document.getElementById('my-peer-id').textContent = `${getDeviceType()} • ID: ${myId}`;
-      document.getElementById('my-avatar').textContent = myId.substring(0, 2).toUpperCase();
+      document.getElementById('my-avatar').textContent = myFriendlyName.substring(0, 2).toUpperCase();
       
       // Prune any existing peers that are no longer in the room
       const activePeers = new Set(msg.peers || []);
@@ -419,6 +423,13 @@ function handleSignalingMessage(msg) {
       if (msg.peers && msg.peers.length > 0) {
         msg.peers.forEach(peerId => {
           initiatePeerConnection(peerId);
+          // Send our metadata to the existing peer
+          sendSignal(peerId, {
+            type: 'peer-meta',
+            name: myFriendlyName,
+            isCapacitor: isCapacitor,
+            deviceType: getDeviceType()
+          });
         });
       }
       break;
@@ -429,8 +440,13 @@ function handleSignalingMessage(msg) {
       if (!peers.has(msg.peerId) && !sendFileState.isPickingFile) {
         showToast('New peer entered the room', 'info');
       }
-      // Connection will be initiated by the newly joined peer via the 'welcome' packet.
-      // The existing peer just waits to receive the incoming offer signal.
+      // Send our metadata to the newly joined peer so they learn who we are
+      sendSignal(msg.peerId, {
+        type: 'peer-meta',
+        name: myFriendlyName,
+        isCapacitor: isCapacitor,
+        deviceType: getDeviceType()
+      });
       break;
       
     case 'peer-left':
@@ -446,7 +462,51 @@ function handleSignalingMessage(msg) {
     case 'signal':
       const sig = msg.signal;
       console.log(`Received signal type "${sig.type}" from peer ${msg.sender}`);
-      if (sig.type === 'ws-meta') {
+      if (sig.type === 'peer-meta') {
+        console.log('Received peer-meta signal:', sig);
+        let peerInfo = peers.get(msg.sender);
+        if (!peerInfo) {
+          peerInfo = {
+            pc: null,
+            dc: null,
+            name: sig.name,
+            deviceType: sig.deviceType,
+            isCapacitor: sig.isCapacitor,
+            candidateQueue: [],
+            remoteDescSet: false,
+            webrtcFailed: false
+          };
+          peers.set(msg.sender, peerInfo);
+        } else {
+          peerInfo.name = sig.name;
+          peerInfo.deviceType = sig.deviceType;
+          peerInfo.isCapacitor = sig.isCapacitor;
+        }
+        // Update UI name if card already exists
+        const card = document.getElementById(`peer-${msg.sender}`);
+        if (card) {
+          const nameEl = card.querySelector('.peer-name');
+          if (nameEl) nameEl.textContent = sig.name;
+          const avatarEl = card.querySelector('.peer-avatar');
+          if (avatarEl) avatarEl.textContent = sig.name.substring(0, 2).toUpperCase();
+        }
+      } else if (sig.type === 'direct-download') {
+        console.log('Received direct-download URL from app peer:', sig);
+        receiveFileState = {
+          fileName: sig.name,
+          fileSize: sig.size,
+          downloadUrl: sig.downloadUrl,
+          senderPeerId: msg.sender,
+          isDirectDownload: true
+        };
+        
+        const peerInfo = peers.get(msg.sender);
+        // Display accept modal
+        document.getElementById('incoming-peer-name').textContent = peerInfo ? peerInfo.name : 'Remote Device';
+        document.getElementById('incoming-file-name').textContent = sig.name;
+        document.getElementById('incoming-file-size').textContent = formatBytes(sig.size);
+        document.getElementById('incoming-modal').classList.add('active');
+      } else if (sig.type === 'ws-meta') {
         console.log('Handling incoming ws-meta signal, showing accept modal...');
         receiveFileState = {
           fileName: sig.name,
@@ -1744,20 +1804,11 @@ async function enableLocalIPs() {
   // Clear History
   document.getElementById('clear-history-btn').addEventListener('click', clearHistory);
   
-  // File Input Handler
-  document.getElementById('file-input').addEventListener('change', async (e) => {
-    sendFileState.isPickingFile = false;  // File picker closed
-    const file = e.target.files[0];
-    if (!file || !sendFileState.targetPeerId) return;
-
-    sendFileState.file = file;
-    
-    const forceRelay = document.getElementById('relay-toggle').checked;
-    const existingPeer = peers.get(sendFileState.targetPeerId);
-
+  // File Input Handler helper for WebRTC fallback
+  async function startWebRTCTransfer(file, peer, forceRelay) {
     // Only tear down and reconnect if the WebRTC Data Channel is not currently open/active
     // OR if we are forcing relay mode.
-    if ((!existingPeer || !existingPeer.dc || existingPeer.dc.readyState !== 'open') && !forceRelay) {
+    if ((!peer || !peer.dc || peer.dc.readyState !== 'open') && !forceRelay) {
       console.log('Direct WebRTC Data Channel not open. Re-initiating peer connection...');
       closePeerConnection(sendFileState.targetPeerId);
       initiatePeerConnection(sendFileState.targetPeerId);
@@ -1765,8 +1816,6 @@ async function enableLocalIPs() {
       console.log('Direct WebRTC Data Channel is already open and active. Reusing existing connection.');
     }
     
-    const peer = peers.get(sendFileState.targetPeerId);
-
     // --- Show the "waiting" UI immediately so user sees feedback ---
     document.getElementById('transfer-title').textContent = 'Waiting for Accept';
     document.getElementById('transfer-peer-info').textContent = `Waiting for ${peer ? peer.name : 'Peer'} to accept...`;
@@ -1824,11 +1873,102 @@ async function enableLocalIPs() {
         size: file.size
       });
     }
+  }
+
+  // File Input Handler
+  document.getElementById('file-input').addEventListener('change', async (e) => {
+    sendFileState.isPickingFile = false;  // File picker closed
+    const file = e.target.files[0];
+    if (!file || !sendFileState.targetPeerId) return;
+
+    sendFileState.file = file;
+    
+    const forceRelay = document.getElementById('relay-toggle').checked;
+    const peer = peers.get(sendFileState.targetPeerId);
+
+    const isAppToApp = isCapacitor && peer && peer.isCapacitor;
+    if (isAppToApp && !forceRelay) {
+      console.log('App-to-App connection detected. Triggering direct Java HTTP server transfer...');
+      
+      // Show upload progress state
+      document.getElementById('transfer-title').textContent = 'Preparing Transfer';
+      document.getElementById('transfer-peer-info').textContent = `Uploading local file to server...`;
+      document.getElementById('transfer-speed').textContent = '-';
+      document.getElementById('time-remaining').textContent = '-';
+      document.getElementById('progress-bar').style.width = '0%';
+      document.getElementById('progress-percent').textContent = '0%';
+      document.getElementById('transferred-bytes').textContent = `File: ${file.name} (${formatBytes(file.size)})`;
+      document.getElementById('transfer-modal').classList.add('active');
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Upload file to local Java NanoHTTPD server
+      const uploadUrl = `http://localhost:8080/api/register-file?name=${encodeURIComponent(file.name)}&mime=${encodeURIComponent(file.type)}`;
+      
+      fetch(uploadUrl, {
+        method: 'POST',
+        body: formData
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'OK') {
+          console.log('File registered on local Java server. Sending direct-download signal:', data.downloadUrl);
+          
+          sendSignal(sendFileState.targetPeerId, {
+            type: 'direct-download',
+            name: file.name,
+            size: file.size,
+            downloadUrl: data.downloadUrl
+          });
+
+          // Update sender UI
+          document.getElementById('transfer-title').textContent = 'File Shared';
+          document.getElementById('transfer-peer-info').textContent = `Shared with ${peer.name} (Direct App Transfer)`;
+          const badge = document.getElementById('connection-mode-badge');
+          badge.textContent = 'Direct App-to-App Link';
+          badge.className = 'connection-mode-badge direct';
+          document.getElementById('progress-bar').style.width = '100%';
+          document.getElementById('progress-percent').textContent = '100%';
+          document.getElementById('transferred-bytes').textContent = `Link sent to peer!`;
+          showToast('App-to-App direct download link sent!', 'success');
+          addHistoryItem(file.name, file.size, 'sent', 'completed');
+          setTimeout(closeTransferModal, 2000);
+        } else {
+          throw new Error('Registration failed');
+        }
+      })
+      .catch(err => {
+        console.warn('Local Java server upload failed, falling back to WebRTC:', err);
+        startWebRTCTransfer(file, peer, forceRelay);
+      });
+    } else {
+      // Normal WebRTC Option B Mode
+      startWebRTCTransfer(file, peer, forceRelay);
+    }
   });
   
   // Accept / Decline Modals
   document.getElementById('accept-file-btn').addEventListener('click', async () => {
     document.getElementById('incoming-modal').classList.remove('active');
+    
+    // Handle Option A direct download
+    if (receiveFileState.isDirectDownload) {
+      showToast('Starting direct download...', 'success');
+      
+      let iframe = document.getElementById('sw-download-iframe');
+      if (!iframe) {
+        iframe = document.createElement('iframe');
+        iframe.id = 'sw-download-iframe';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+      }
+      iframe.src = receiveFileState.downloadUrl;
+      
+      addHistoryItem(receiveFileState.fileName, receiveFileState.fileSize, 'received', 'completed');
+      sendSignal(receiveFileState.senderPeerId, { type: 'ws-accept' });
+      return;
+    }
     
     // Check if Service Worker is active and ready
     const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
@@ -1876,6 +2016,11 @@ async function enableLocalIPs() {
   
   document.getElementById('decline-file-btn').addEventListener('click', () => {
     document.getElementById('incoming-modal').classList.remove('active');
+    
+    if (receiveFileState.isDirectDownload) {
+      sendSignal(receiveFileState.senderPeerId, { type: 'ws-decline' });
+      return;
+    }
     
     // Notify sender that we declined
     if (receiveFileState.useWebSocketRelay) {
