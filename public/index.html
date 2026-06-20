@@ -42,8 +42,8 @@
     <!-- STEP 1: Home View -->
     <section class="view-panel active" id="view-home">
       <div class="hero-section" style="margin-bottom: 32px; background: transparent; border: none; padding: 24px 0;">
-        <h2>P2P Local & Remote File Sharing</h2>
-        <p class="hero-desc">Share large files directly peer-to-peer (P2P) between <strong>Android, iOS, and PC</strong> on the same local network, or send them to remote users anywhere using secure Cloudflare Workers signaling.</p>
+        <h2>P2P App-to-App & App-to-Web File Sharing</h2>
+        <p class="hero-desc">Share large files directly peer-to-peer (P2P) between <strong>Android, iOS, and PC</strong> on the same local network using high-speed App-to-App transfer, or send them to users anywhere via App-to-Web online sharing.</p>
       </div>
 
       <!-- How to Share Files (Instructions integrated directly on homepage) -->
@@ -56,11 +56,11 @@
         <div class="instruction-body" style="max-width: 650px; margin: 0 auto;">
           <ul class="banner-list" style="margin-bottom: 20px; padding-left: 0; list-style-type: none;">
             <li style="margin-bottom: 16px; text-align: center; color: var(--text-secondary); line-height: 1.6;">
-              <span style="color: var(--primary); font-weight: 600; display: block; margin-bottom: 4px; font-size: 14.5px;">For High-Speed Local P2P Transfer</span>
+              <span style="color: var(--primary); font-weight: 600; display: block; margin-bottom: 4px; font-size: 14.5px;">For High-Speed App-to-App Transfer</span>
               Turn on mobile hotspot on one device and connect the other device to it through Wi-Fi. (This enables direct local file sharing up to 10-15+ Mbps without using internet data).
             </li>
             <li style="margin-bottom: 16px; text-align: center; color: var(--text-secondary); line-height: 1.6;">
-              <span style="color: var(--primary); font-weight: 600; display: block; margin-bottom: 4px; font-size: 14.5px;">For Remote Transfer</span>
+              <span style="color: var(--primary); font-weight: 600; display: block; margin-bottom: 4px; font-size: 14.5px;">For App-to-Web Transfer</span>
               If devices are not connected via Hotspot/same Wi-Fi, the app will fallback to WebSocket Relay mode to transfer files over the internet.
             </li>
           </ul>
@@ -202,8 +202,8 @@
               <div class="qr-header" style="margin-bottom: 12px; text-align: center;">
                 <div class="qr-toggle-tabs">
                   <div class="qr-tab-slider"></div>
-                  <button id="qr-tab-local" class="qr-tab active">Local (Hotspot/Wi-Fi)</button>
-                  <button id="qr-tab-internet" class="qr-tab">Internet (Remote)</button>
+                  <button id="qr-tab-local" class="qr-tab active">App-to-App (Offline)</button>
+                  <button id="qr-tab-internet" class="qr-tab">App-to-Web (Online)</button>
                 </div>
               </div>
               <div class="qr-container">
