@@ -219,7 +219,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // Initialize Application
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   setupRoom();
   loadHistory();
   
@@ -229,30 +229,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (isCapacitor) {
     // Phone side: fetch the phone's own LAN IP
-    try {
-      const res = await fetch('http://localhost:8080/api/ip');
-      const data = await res.json();
-      if (data && data.ip) {
-        localIpAddress = data.ip;
-        console.log('Phone local IP:', localIpAddress);
-      }
-    } catch (err) {
-      console.error('Failed to fetch local IP during startup:', err);
-    }
+    fetch('http://localhost:8080/api/ip')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.ip) {
+          localIpAddress = data.ip;
+          console.log('Phone local IP:', localIpAddress);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch local IP during startup:', err);
+      });
   } else if (isNanoHTTPD) {
     // PC side: ask the phone server what IP the PC is connecting from.
     // This lets us rewrite mDNS-masked ICE candidates (d7a34b12.local → 192.168.1.x)
     // so the phone can reach the PC directly instead of going through TURN.
-    try {
-      const res = await fetch('/api/peer-ip');
-      const data = await res.json();
-      if (data && data.ip) {
-        localIpAddress = data.ip;
-        console.log('PC LAN IP (from phone server):', localIpAddress);
-      }
-    } catch (err) {
-      console.warn('Failed to fetch peer IP — ICE candidate rewriting disabled:', err);
-    }
+    fetch('/api/peer-ip')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.ip) {
+          localIpAddress = data.ip;
+          console.log('PC LAN IP (from phone server):', localIpAddress);
+        }
+      })
+      .catch(err => {
+        console.warn('Failed to fetch peer IP — ICE candidate rewriting disabled:', err);
+      });
   }
   
   generateQRCode();
@@ -295,8 +297,7 @@ function setupRoom() {
     // Joining room directly via shared URL
     roomId = hash.substring(1);
     document.getElementById('room-id-display').textContent = roomId;
-    navigateTo('instructions', false);
-    history.replaceState({ view: 'instructions' }, '', '#instructions');
+    navigateTo('home', false);
   } else {
     // Default flow: Start with home view
     roomId = Math.random().toString(36).substring(2, 8);
