@@ -1509,14 +1509,14 @@ body {
 }
 
 /* Premium Web Landing Page Layout & Aesthetics */
-body:not(.is-app) #view-home {
+body:not(.is-app) #view-home.active {
   display: flex;
   flex-direction: column;
   gap: 32px;
 }
 
 @media (min-width: 992px) {
-  body:not(.is-app) #view-home {
+  body:not(.is-app) #view-home.active {
     display: grid;
     grid-template-columns: 1.1fr 1fr;
     gap: 56px;
@@ -1618,38 +1618,38 @@ body:not(.is-app) .apk-download-banner .btn:hover {
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
 }
 
-/* Bento Style Feature Cards on Right */
-body:not(.is-app) .instruction-banner-card,
-body:not(.is-app) .privacy-card {
+/* Beautiful Feature Cards (App & Web General) */
+.instruction-banner-card,
+.privacy-card {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-lg);
-  padding: 32px;
+  padding: 24px;
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-  margin-top: 0 !important;
   transition: var(--transition-smooth);
 }
 
-body:not(.is-app) .instruction-banner-card:hover,
-body:not(.is-app) .privacy-card:hover {
+.instruction-banner-card:hover,
+.privacy-card:hover {
   border-color: var(--card-border-hover);
   box-shadow: 0 12px 40px rgba(99, 102, 241, 0.06);
 }
 
-body:not(.is-app) .instruction-banner-card .title-group h3,
-body:not(.is-app) .privacy-card h3 {
+.instruction-banner-card .title-group h3,
+.privacy-card h3 {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
-body:not(.is-app) .banner-list {
+.banner-list {
   padding-left: 0;
   list-style: none;
 }
 
-body:not(.is-app) .banner-list li {
+.banner-list li {
   text-align: left !important;
   background: rgba(255, 255, 255, 0.01);
   border: 1px solid rgba(255, 255, 255, 0.03);
@@ -1658,42 +1658,102 @@ body:not(.is-app) .banner-list li {
   margin-bottom: 12px;
 }
 
-body:not(.is-app) .banner-list li span {
+.banner-list li span {
   font-size: 14px;
   color: var(--primary) !important;
   font-weight: 700 !important;
 }
 
-body:not(.is-app) .banner-warning {
+.banner-warning {
   margin: 16px 0 0 0 !important;
   max-width: 100% !important;
   background: rgba(239, 68, 68, 0.03);
   border: 1px solid rgba(239, 68, 68, 0.08);
 }
 
-body:not(.is-app) .permissions-list {
+.permissions-list {
   max-width: 100% !important;
 }
 
-body:not(.is-app) .permission-item {
+.permission-item {
   text-align: left !important;
   padding: 16px 0 !important;
 }
 
-body:not(.is-app) .permission-name {
+.permission-name {
   font-size: 14.5px !important;
   font-weight: 700 !important;
   color: var(--text-primary);
 }
 
-body:not(.is-app) .permission-desc {
+.permission-desc {
   font-size: 13px !important;
   color: var(--text-secondary) !important;
 }
 
-/* Fallback for app styling alignment */
-body.is-app #view-home {
+/* Web-specific Card Padding Enhancements */
+body:not(.is-app) .instruction-banner-card,
+body:not(.is-app) .privacy-card {
+  padding: 32px;
+}
+
+/* App Home Styling Alignment & Cards layout */
+body.is-app #view-home.active {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
   max-width: 600px;
   margin: 0 auto;
+  padding: 16px 8px 48px;
 }
+
+/* Beautiful Container around CTA in the App */
+body.is-app .home-cta-container {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+body.is-app #start-sharing-btn {
+  width: 100%;
+  padding: 14px 28px;
+  font-size: 15px;
+  border-radius: 100px;
+  background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
+  box-shadow: 0 6px 20px var(--primary-glow);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Mobile Web Alignment Fixes */
+@media (max-width: 768px) {
+  body:not(.is-app) .hero-section {
+    text-align: center;
+    padding: 16px;
+  }
+  body:not(.is-app) .hero-desc {
+    margin: 0 auto;
+  }
+  body:not(.is-app) .home-cta-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+    margin-bottom: 32px;
+  }
+  body:not(.is-app) .apk-download-banner {
+    margin: 0 auto;
+    text-align: center;
+  }
+  body:not(.is-app) .apk-download-banner h3 {
+    justify-content: center !important;
+  }
+}
+
 
