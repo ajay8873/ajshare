@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AJShare - P2P File Sharing</title>
+  <meta name="description" content="Direct peer-to-peer file sharing via WebRTC and local connections.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="glow-container">
+    <div class="glow-sphere glow-1"></div>
+    <div class="glow-sphere glow-2"></div>
+  </div>
+
+  <header class="app-header">
+    <div class="logo" style="cursor: pointer;" id="header-logo" onclick="window.location.href='index.html'">
+      <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1>AJShare</h1>
+      <span class="badge">Cloudflare P2P</span>
+    </div>
+    <div class="room-share-container" id="header-room-pill" style="display: flex;">
+      <span class="room-label">Room:</span>
+      <div class="room-pill">
+        <span id="room-id-display">Loading...</span>
+        <button id="copy-room-btn" title="Copy room link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-copy"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <section class="view-panel active" id="view-peers">
+      <div class="peer-section">
+        <div class="section-title-bar">
+          <h2>Active Peers</h2>
+          <span class="peer-count-badge" id="peer-count">0 connected</span>
+        </div>
+
+        <!-- Grid of active peers -->
+        <div class="peer-grid" id="peer-grid">
+          <div class="empty-peers-state" id="empty-state" style="display: flex;">
+            <div class="empty-icon-container">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="empty-icon"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            </div>
+            <h4>No other devices in this room</h4>
+            <p>Share the room link with another phone, tablet, or laptop to start transferring files directly.</p>
+            <button id="invite-btn" class="btn btn-secondary">Copy Room Link</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Section -->
+      <section class="card history-section" style="margin-top: 32px;">
+        <div class="section-title-bar">
+          <h2>Transfer History</h2>
+          <button id="clear-history-btn" class="btn-muted-action">Clear History</button>
+        </div>
+        <div class="history-list" id="history-list">
+          <div class="empty-history" id="empty-history">
+            <p>No transfers in this session yet.</p>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- Drag and drop hidden/explicit overlay for sending files -->
+  <input type="file" id="file-input" style="display: none;">
+
+  <!-- MODAL: Incoming file request -->
+  <div class="modal-backdrop" id="incoming-modal">
+    <div class="modal-content glass-card">
+      <div class="modal-header">
+        <div class="modal-icon warning">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </div>
+        <h3>Incoming File Request</h3>
+      </div>
+      <div class="modal-body">
+        <p><strong id="incoming-peer-name">Device</strong> wants to send you a file:</p>
+        <div class="file-info-box">
+          <div class="file-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+          </div>
+          <div class="file-details">
+            <h4 id="incoming-file-name">filename.zip</h4>
+            <p id="incoming-file-size">0 KB</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="decline-file-btn" class="btn btn-danger">Decline</button>
+        <button id="accept-file-btn" class="btn btn-primary">Accept & Download</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSFER OVERLAY: Active progress tracker -->
+  <div class="modal-backdrop" id="transfer-modal">
+    <div class="modal-content glass-card transfer-card">
+      <h3 id="transfer-title">Transferring File</h3>
+      <p id="transfer-peer-info" class="transfer-subtitle">Connecting...</p>
+      
+      <!-- Connection Mode Badge (Direct vs. Relayed) -->
+      <div class="connection-mode-container">
+        <span class="connection-mode-badge" id="connection-mode-badge">Checking connection...</span>
+      </div>
+
+      <div class="progress-container">
+        <!-- Linear progress bar -->
+        <div class="linear-progress-track">
+          <div class="linear-progress-fill" id="progress-bar" style="width: 0%;"></div>
+        </div>
+        <div class="progress-details">
+          <span class="percentage" id="progress-percent">0%</span>
+          <span class="metrics" id="transfer-speed">0 MB/s</span>
+        </div>
+      </div>
+
+      <div class="transfer-stats">
+        <div class="stat-item">
+          <span class="stat-label">Transferred</span>
+          <span class="stat-value" id="transferred-bytes">0 MB / 0 MB</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Time Remaining</span>
+          <span class="stat-value" id="time-remaining">Calculating...</span>
+        </div>
+      </div>
+
+      <div class="modal-footer justify-center">
+        <button id="cancel-transfer-btn" class="btn btn-danger btn-wide">Cancel Transfer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Same-Network Alert Modal (App-to-App check) -->
+  <div class="modal-backdrop" id="network-alert-modal">
+    <div class="modal-content glass-card" style="max-width: 460px; text-align: center;">
+      <div class="modal-header" style="justify-content: center; flex-direction: column; gap: 12px;">
+        <div class="modal-icon warning" style="background: rgba(239, 68, 68, 0.15); color: var(--danger); margin: 0 auto;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+        </div>
+        <h3 style="font-size: 18px; font-weight: 700; margin: 0;">Same Local Network Required</h3>
+      </div>
+      <div class="modal-body" style="padding-top: 8px;">
+        <p style="font-size: 14px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 12px;">
+          Both devices are running the AJShare Native App. You must connect them to the same local network to share files directly.
+        </p>
+        <p style="font-size: 13.5px; line-height: 1.5; color: var(--text-muted); font-weight: 500;">
+          👉 Turn on mobile hotspot on one phone and connect the other phone to it via Wi-Fi, or connect both to the same Wi-Fi router.
+        </p>
+      </div>
+      <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: center;">
+        <button id="close-network-alert-btn" class="btn btn-primary btn-wide" style="min-width: 150px;">Understood</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <footer class="app-footer">
+    <p>Direct peer-to-peer connection encrypted via WebRTC. Files never touch any server.</p>
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
