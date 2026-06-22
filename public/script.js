@@ -345,6 +345,10 @@ function connectSignaling() {
     wsHost = window.location.hostname + ':8081';
   }
   
+  if (wsHost === 'ajshare.mehtaajay8873.workers.dev') {
+    wsProtocol = 'wss:';
+  }
+  
   const wsUrl = `${wsProtocol}//${wsHost}/ws?room=${roomId}`;
   
   updateConnectionStatus('connecting', 'Connecting...');
