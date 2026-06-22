@@ -6,11 +6,11 @@ const CHUNK_SIZE = 65536; // 64KB chunks for optimal WebRTC DataChannel speed an
 const BUFFER_THRESHOLD = 1048576; // 1MB buffer to optimize throughput speed without overflowing browser SCTP stack
 const PING_INTERVAL = 10000; // 10 seconds — keeps signaling alive even during file picker pauses
 
-// Determine current page context
+// Determine current page context (supports clean URLs on Cloudflare Pages)
 const path = window.location.pathname;
-const isIndexPage = path.endsWith('index.html') || path.endsWith('/') || (!path.includes('.html') && !path.includes('room') && !path.includes('peers'));
-const isRoomPage = path.includes('room.html');
-const isPeersPage = path.includes('peers.html');
+const isRoomPage = path.includes('room');
+const isPeersPage = path.includes('peers');
+const isIndexPage = !isRoomPage && !isPeersPage;
 
 // Application State
 let roomId = '';
@@ -1458,7 +1458,7 @@ async function enableLocalIPs() {
 }
 
 function copyRoomLink() {
-  const targetUrl = `${window.location.origin}/room.html#${roomId}`;
+  const targetUrl = `https://ajshare.pages.dev/room.html#${roomId}`;
   navigator.clipboard.writeText(targetUrl).then(() => {
     showToast('Room link copied to clipboard!');
   }).catch(err => {
@@ -1479,7 +1479,7 @@ function generateQRCode() {
   const canvas = document.getElementById('qr-code-canvas');
   if (!canvas) return;
 
-  let targetUrl = `${window.location.origin}/room.html#${roomId}`;
+  let targetUrl = `https://ajshare.pages.dev/room.html#${roomId}`;
   if (qrMode === 'local' && localIpAddress) {
     targetUrl = `http://${localIpAddress}:8080/room.html#${roomId}`;
   }
@@ -1515,6 +1515,36 @@ if ('serviceWorker' in navigator && isPeersPage) {
 document.addEventListener('DOMContentLoaded', () => {
   setupRoomId();
   
+  if (isCapacitor) {
+    document.body.classList.add('is-app');
+    const apkBanner = document.querySelector('.apk-download-banner');
+    if (apkBanner) apkBanner.style.display = 'none';
+
+    fetch('http://localhost:8080/api/ip')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.ip) {
+          localIpAddress = data.ip;
+          if (isRoomPage) {
+            generateQRCode();
+          }
+        }
+      })
+      .catch(err => console.error('Failed to fetch local IP:', err));
+  } else if (isNanoHTTPD) {
+    fetch('/api/peer-ip')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.ip) {
+          localIpAddress = data.ip;
+          if (isRoomPage) {
+            generateQRCode();
+          }
+        }
+      })
+      .catch(err => console.warn('Failed to fetch peer IP:', err));
+  }
+
   if (isIndexPage) {
     // Landing Page Specific logic
     const startSharingBtn = document.getElementById('start-sharing-btn');
@@ -1543,33 +1573,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (isRoomPage || isPeersPage) {
-    // Fetch LAN IP for app contexts
-    if (isCapacitor) {
-      document.body.classList.add('is-app');
-      const apkBanner = document.querySelector('.apk-download-banner');
-      if (apkBanner) apkBanner.style.display = 'none';
-
-      fetch('http://localhost:8080/api/ip')
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.ip) {
-            localIpAddress = data.ip;
-            generateQRCode();
-          }
-        })
-        .catch(err => console.error('Failed to fetch local IP:', err));
-    } else if (isNanoHTTPD) {
-      fetch('/api/peer-ip')
-        .then(res => res.json())
-        .then(data => {
-          if (data && data.ip) {
-            localIpAddress = data.ip;
-            generateQRCode();
-          }
-        })
-        .catch(err => console.warn('Failed to fetch peer IP:', err));
-    }
-
     connectSignaling();
   }
 
@@ -1841,6 +1844,46 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('network-alert-modal').classList.remove('active');
     });
   }
+
+  // App self-updater checker
+  const CURRENT_VERSION = '1.0.5';
+  
+  if (isCapacitor) {
+    const updateUrl = 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/version.json';
+    fetch(updateUrl)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.version && CURRENT_VERSION !== data.version) {
+          console.log(`Update available: ${data.version} (current: ${CURRENT_VERSION})`);
+          document.getElementById('update-version-str').textContent = data.version;
+          if (data.notes) {
+            document.getElementById('update-notes-str').textContent = data.notes;
+          }
+          const downloadBtn = document.getElementById('download-update-btn');
+          if (downloadBtn) {
+            downloadBtn.href = data.downloadUrl || 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare.apk';
+          }
+          document.getElementById('update-modal').classList.add('active');
+        }
+      })
+      .catch(err => {
+        console.warn('Failed to check for updates:', err);
+      });
+  }
+
+  // Update modal close actions
+  const closeUpdateBtn = document.getElementById('close-update-btn');
+  if (closeUpdateBtn) {
+    closeUpdateBtn.addEventListener('click', () => {
+      document.getElementById('update-modal').classList.remove('active');
+    });
+  }
+  const downloadUpdateBtn = document.getElementById('download-update-btn');
+  if (downloadUpdateBtn) {
+    downloadUpdateBtn.addEventListener('click', () => {
+      document.getElementById('update-modal').classList.remove('active');
+    });
+  }
 });
 
 // WebRTC Transfer initialization helper
@@ -1970,37 +2013,6 @@ function formatBytes(bytes, decimals = 2) {
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-}
-
-function formatTime(seconds) {
-  if (seconds === Infinity || isNaN(seconds)) return 'Calculating...';
-  if (seconds < 60) return `${seconds}s`;
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}m ${secs}s`;
-}
-
-function showToast(message, type = 'success') {
-  const container = document.getElementById('toast-container');
-  if (!container) return;
-  const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  
-  let icon = '';
-  if (type === 'success') {
-    icon = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-  } else {
-    icon = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>';
-  }
-  
-  toast.innerHTML = `${icon} <span>${message}</span>`;
-  container.appendChild(toast);
-  
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    toast.style.transform = 'translateY(10px)';
-    setTimeout(() => toast.remove(), 300);
-  }, 3500);
 }
 
 // History List management
