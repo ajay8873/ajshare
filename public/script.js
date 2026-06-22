@@ -234,6 +234,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const isNanoHTTPD = !isCapacitor && window.location.port === '8080' && window.location.hostname !== 'localhost';
 
   if (isCapacitor) {
+    // Hide the APK download banner when running inside the native Android application
+    const apkBanner = document.querySelector('.apk-download-banner');
+    if (apkBanner) {
+      apkBanner.style.display = 'none';
+    }
+
     // Phone side: fetch the phone's own LAN IP
     fetch('http://localhost:8080/api/ip')
       .then(res => res.json())
@@ -1079,7 +1085,10 @@ function sendOrderedChunks() {
         if (sendFileState.lastBytesSent >= sendFileState.file.size) {
           showToast('File transfer completed!', 'success');
           addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'completed');
-          setTimeout(closeTransferModal, 1500);
+          setTimeout(() => {
+            resetAllTransferStates();
+            closeTransferModal();
+          }, 1500);
           return;
         }
       } catch (err) {
@@ -1209,7 +1218,10 @@ function sendOrderedChunksWebSocket() {
         if (sendFileState.lastBytesSent >= sendFileState.file.size) {
           showToast('File transfer completed!', 'success');
           addHistoryItem(sendFileState.file.name, sendFileState.file.size, 'sent', 'completed');
-          setTimeout(closeTransferModal, 1500);
+          setTimeout(() => {
+            resetAllTransferStates();
+            closeTransferModal();
+          }, 1500);
           isSendingWebSocket = false;
           return;
         }
