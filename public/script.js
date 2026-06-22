@@ -1515,6 +1515,10 @@ if ('serviceWorker' in navigator && isPeersPage) {
 document.addEventListener('DOMContentLoaded', () => {
   setupRoomId();
   
+  const isWindows = () => {
+    return navigator.platform.indexOf('Win') > -1 || navigator.userAgent.indexOf('Windows') > -1;
+  };
+
   if (isCapacitor) {
     document.body.classList.add('is-app');
     const apkBanner = document.querySelector('.apk-download-banner');
@@ -1546,6 +1550,43 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (isIndexPage) {
+    if (isWindows()) {
+      const bannerTitle = document.getElementById('banner-app-title');
+      if (bannerTitle) {
+        bannerTitle.innerHTML = `<svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--success);"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg> AJShare Windows Application`;
+      }
+      const bannerDesc = document.getElementById('banner-app-desc');
+      if (bannerDesc) {
+        bannerDesc.textContent = "Get optimized speeds, raw local IP discovery, and background transfer stability on your Windows PC.";
+      }
+      const bannerLink = document.getElementById('banner-app-link');
+      if (bannerLink) {
+        bannerLink.href = "/ajshare_v1.0.5.exe";
+        bannerLink.textContent = "Download Windows App (EXE)";
+        bannerLink.style.background = "var(--primary)";
+        bannerLink.style.boxShadow = "0 4px 12px var(--primary-glow)";
+      }
+      const modalTitle = document.getElementById('modal-app-title');
+      if (modalTitle) {
+        modalTitle.textContent = "Get 10x Faster P2P Transfer on PC!";
+      }
+      const modalDesc1 = document.getElementById('modal-app-desc-1');
+      if (modalDesc1) {
+        modalDesc1.textContent = "For optimized local transfer speeds (10-15+ Mbps) without using internet data, download our official Windows desktop app.";
+      }
+      const modalDesc2 = document.getElementById('modal-app-desc-2');
+      if (modalDesc2) {
+        modalDesc2.textContent = "Supports direct Wi-Fi networks, raw local IP discovery, and background transfer stability on desktop.";
+      }
+      const modalLink = document.getElementById('modal-app-link');
+      if (modalLink) {
+        modalLink.href = "/ajshare_v1.0.5.exe";
+        modalLink.textContent = "Download Windows App (EXE)";
+        modalLink.style.background = "var(--primary)";
+        modalLink.style.boxShadow = "0 4px 12px var(--primary-glow)";
+      }
+    }
+
     // Landing Page Specific logic
     const startSharingBtn = document.getElementById('start-sharing-btn');
     if (startSharingBtn) {
@@ -1861,7 +1902,8 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           const downloadBtn = document.getElementById('download-update-btn');
           if (downloadBtn) {
-            downloadBtn.href = data.downloadUrl || 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.5.apk';
+            const isElectron = navigator.userAgent.toLowerCase().includes('electron') || (typeof window !== 'undefined' && window.process && window.process.type);
+            downloadBtn.href = (isElectron ? data.windowsDownloadUrl : data.downloadUrl) || (isElectron ? 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.5.exe' : 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.5.apk');
           }
           document.getElementById('update-modal').classList.add('active');
         }
