@@ -1561,7 +1561,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const bannerLink = document.getElementById('banner-app-link');
       if (bannerLink) {
-        bannerLink.href = "/ajshare_v1.0.5.exe";
+        bannerLink.href = "https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.5.exe";
         bannerLink.textContent = "Download Windows App (EXE)";
         bannerLink.style.background = "var(--primary)";
         bannerLink.style.boxShadow = "0 4px 12px var(--primary-glow)";
@@ -1580,7 +1580,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const modalLink = document.getElementById('modal-app-link');
       if (modalLink) {
-        modalLink.href = "/ajshare_v1.0.5.exe";
+        modalLink.href = "https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.5.exe";
         modalLink.textContent = "Download Windows App (EXE)";
         modalLink.style.background = "var(--primary)";
         modalLink.style.boxShadow = "0 4px 12px var(--primary-glow)";
