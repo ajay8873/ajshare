@@ -1861,7 +1861,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           const downloadBtn = document.getElementById('download-update-btn');
           if (downloadBtn) {
-            downloadBtn.href = data.downloadUrl || 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare.apk';
+            downloadBtn.href = data.downloadUrl || 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.5.apk';
           }
           document.getElementById('update-modal').classList.add('active');
         }

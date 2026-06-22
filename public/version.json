@@ -1,5 +1,5 @@
 {
   "version": "1.0.5",
-  "downloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare.apk",
+  "downloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.5.apk",
   "notes": "Migrated to multi-page architecture and added local subnet verification for app transfers."
 }
