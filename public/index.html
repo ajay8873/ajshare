@@ -41,58 +41,61 @@
     
     <!-- STEP 1: Home View -->
     <section class="view-panel active" id="view-home">
-      <div class="hero-section" style="margin-bottom: 32px; background: transparent; border: none; padding: 24px 0;">
-        <h2>P2P App-to-App & App-to-Web File Sharing</h2>
-        <p class="hero-desc">Share large files directly peer-to-peer (P2P) between <strong>Android, iOS, and PC</strong> on the same local network using high-speed App-to-App transfer, or send them to users anywhere via App-to-Web online sharing.</p>
-      </div>
-
-      <!-- How to Share Files (Instructions integrated directly on homepage) -->
-      <div class="instruction-banner-card" style="margin-top: 12px; margin-bottom: 32px; background: transparent; border: none; box-shadow: none; padding: 0;">
-        <div class="title-group" style="margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--primary);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-          <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary);">How to Share Files (Read Carefully)</h3>
-        </div>
-        
-        <div class="instruction-body" style="max-width: 650px; margin: 0 auto;">
-          <ul class="banner-list" style="margin-bottom: 20px; padding-left: 0; list-style-type: none;">
-            <li style="margin-bottom: 16px; text-align: center; color: var(--text-secondary); line-height: 1.6;">
-              <span style="color: var(--primary); font-weight: 600; display: block; margin-bottom: 4px; font-size: 14.5px;">For High-Speed App-to-App Transfer</span>
-              Turn on mobile hotspot on one device and connect the other device to it through Wi-Fi. (This enables direct local file sharing up to 10-15+ Mbps without using internet data).
-            </li>
-            <li style="margin-bottom: 16px; text-align: center; color: var(--text-secondary); line-height: 1.6;">
-              <span style="color: var(--primary); font-weight: 600; display: block; margin-bottom: 4px; font-size: 14.5px;">For App-to-Web Transfer</span>
-              If devices are not connected via Hotspot/same Wi-Fi, the app will fallback to WebSocket Relay mode to transfer files over the internet.
-            </li>
-          </ul>
-        </div>
-        
-        <div class="banner-warning" style="margin: 24px auto; max-width: 600px; border-radius: var(--radius-md); padding: 12px 18px; background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.08); box-shadow: none;">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" class="banner-warn-icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-          <span class="warn-message" style="font-size: 13px; text-align: left;"><strong>Warning:</strong> WebSocket Relay mode transfers files over the internet and WILL consume your mobile/internet data plan. Connecting through a local hotspot is highly recommended!</span>
+      <div class="home-left-col">
+        <div class="hero-section">
+          <h2>P2P App-to-App & App-to-Web File Sharing</h2>
+          <p class="hero-desc">Share large files directly peer-to-peer (P2P) between <strong>Android, iOS, and PC</strong> on the same local network using high-speed App-to-App transfer, or send them to users anywhere via App-to-Web online sharing.</p>
         </div>
 
-        <div style="text-align: center; margin-top: 28px;">
-          <button id="start-sharing-btn" class="btn btn-primary btn-lg" style="padding: 14px 44px; font-size: 16px; border-radius: var(--radius-lg); min-height: 52px; max-width: 320px; width: 100%; margin: 0 auto; display: inline-flex;">
+        <div class="home-cta-container">
+          <button id="start-sharing-btn" class="btn btn-primary btn-lg">
             Understood & Start
             <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="margin-left: 8px; display: inline-block; vertical-align: middle;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
           </button>
         </div>
+
+        <!-- APK Download Banner directly below hero section -->
+        <div class="apk-download-banner">
+          <h3 style="font-size: 16px; margin-bottom: 8px; color: var(--text-primary); display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--success);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+            AJShare Android Application
+          </h3>
+          <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">Get optimized speeds, raw local IP discovery, and background transfer stability on your Android device.</p>
+          <a href="/ajshare.apk" download class="btn btn-primary btn-sm" style="min-height: 40px; background: var(--success); box-shadow: 0 4px 12px var(--success-glow); max-width: 250px; margin: 0 auto; display: flex; border: none; color: white;">
+            Download Android App (APK)
+          </a>
+        </div>
       </div>
 
-      <!-- APK Download Banner directly below hero section -->
-      <div class="apk-download-banner" style="margin-top: 24px; text-align: center; background: transparent; border: none; padding: 24px 0; box-shadow: none;">
-        <h3 style="font-size: 16px; margin-bottom: 8px; color: var(--text-primary); display: flex; align-items: center; justify-content: center; gap: 8px;">
-          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--success);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
-          AJShare Android Application
-        </h3>
-        <p style="font-size: 13.5px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">Get optimized speeds, raw local IP discovery, and background transfer stability on your Android device.</p>
-        <a href="/ajshare.apk" download class="btn btn-primary btn-sm" style="min-height: 40px; background: var(--success); box-shadow: 0 4px 12px var(--success-glow); max-width: 250px; margin: 0 auto; display: flex; border: none; color: white;">
-          Download Android App (APK)
-        </a>
-      </div>
+      <div class="home-right-col">
+        <!-- How to Share Files (Instructions integrated directly on homepage) -->
+        <div class="instruction-banner-card">
+          <div class="title-group" style="margin-bottom: 16px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--primary);"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary);">How to Share Files (Read Carefully)</h3>
+          </div>
+          
+          <div class="instruction-body" style="max-width: 650px; margin: 0 auto;">
+            <ul class="banner-list" style="margin-bottom: 20px; padding-left: 0; list-style-type: none;">
+              <li style="margin-bottom: 16px; text-align: center; color: var(--text-secondary); line-height: 1.6;">
+                <span style="color: var(--primary); font-weight: 600; display: block; margin-bottom: 4px; font-size: 14.5px;">For High-Speed App-to-App Transfer</span>
+                Turn on mobile hotspot on one device and connect the other device to it through Wi-Fi. (This enables direct local file sharing up to 10-15+ Mbps without using internet data).
+              </li>
+              <li style="margin-bottom: 16px; text-align: center; color: var(--text-secondary); line-height: 1.6;">
+                <span style="color: var(--primary); font-weight: 600; display: block; margin-bottom: 4px; font-size: 14.5px;">For App-to-Web Transfer</span>
+                If devices are not connected via Hotspot/same Wi-Fi, the app will fallback to WebSocket Relay mode to transfer files over the internet.
+              </li>
+            </ul>
+          </div>
+          
+          <div class="banner-warning" style="margin: 24px auto; max-width: 600px; border-radius: var(--radius-md); padding: 12px 18px; background: rgba(239, 68, 68, 0.04); border: 1px solid rgba(239, 68, 68, 0.08); box-shadow: none;">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" class="banner-warn-icon"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            <span class="warn-message" style="font-size: 13px; text-align: left;"><strong>Warning:</strong> WebSocket Relay mode transfers files over the internet and WILL consume your mobile/internet data plan. Connecting through a local hotspot is highly recommended!</span>
+          </div>
+        </div>
 
-      <!-- Privacy & Permissions Info Card -->
-      <div class="privacy-card" style="margin-top: 24px; background: transparent; border: none; padding: 24px 0; box-shadow: none;">
+        <!-- Privacy & Permissions Info Card -->
+        <div class="privacy-card">
         <h3 style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px; justify-content: center;">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2.5" fill="none" style="color: var(--primary);"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
           Permissions & Privacy Information

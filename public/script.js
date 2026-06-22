@@ -234,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const isNanoHTTPD = !isCapacitor && window.location.port === '8080' && window.location.hostname !== 'localhost';
 
   if (isCapacitor) {
+    document.body.classList.add('is-app');
     // Hide the APK download banner when running inside the native Android application
     const apkBanner = document.querySelector('.apk-download-banner');
     if (apkBanner) {

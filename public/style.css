@@ -1507,3 +1507,193 @@ body {
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
 }
+
+/* Premium Web Landing Page Layout & Aesthetics */
+body:not(.is-app) #view-home {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+@media (min-width: 992px) {
+  body:not(.is-app) #view-home {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 56px;
+    align-items: flex-start;
+    padding: 32px 0 64px 0;
+  }
+}
+
+/* Hero Section Typography */
+body:not(.is-app) .hero-section {
+  text-align: left;
+  margin-bottom: 0;
+  padding: 0;
+}
+
+body:not(.is-app) .hero-section h2 {
+  font-size: clamp(32px, 5vw, 48px);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -1.5px;
+  background: linear-gradient(135deg, #ffffff 30%, var(--primary) 70%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 20px;
+}
+
+body:not(.is-app) .hero-desc {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  max-width: 540px;
+}
+
+/* CTA & Buttons */
+body:not(.is-app) .home-cta-container {
+  margin-top: 36px;
+  margin-bottom: 48px;
+}
+
+body:not(.is-app) #start-sharing-btn {
+  padding: 16px 48px;
+  font-size: 16px;
+  border-radius: 100px;
+  background: linear-gradient(135deg, var(--primary) 0%, #8b5cf6 100%);
+  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.35);
+  transition: var(--transition-smooth);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+body:not(.is-app) #start-sharing-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 35px rgba(99, 102, 241, 0.45);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Premium APK Download Banner */
+body:not(.is-app) .apk-download-banner {
+  background: rgba(16, 185, 129, 0.04);
+  border: 1px solid rgba(16, 185, 129, 0.1);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: left;
+  max-width: 520px;
+  margin-top: 0;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+body:not(.is-app) .apk-download-banner h3 {
+  justify-content: flex-start !important;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+body:not(.is-app) .apk-download-banner p {
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+body:not(.is-app) .apk-download-banner .btn {
+  margin: 0 !important;
+  width: 100%;
+  max-width: 280px !important;
+  min-height: 44px !important;
+  font-size: 13.5px;
+  border-radius: var(--radius-md);
+  background: var(--success);
+  color: white;
+  font-weight: 600;
+  box-shadow: 0 4px 15px var(--success-glow);
+}
+
+body:not(.is-app) .apk-download-banner .btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+}
+
+/* Bento Style Feature Cards on Right */
+body:not(.is-app) .instruction-banner-card,
+body:not(.is-app) .privacy-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  margin-top: 0 !important;
+  transition: var(--transition-smooth);
+}
+
+body:not(.is-app) .instruction-banner-card:hover,
+body:not(.is-app) .privacy-card:hover {
+  border-color: var(--card-border-hover);
+  box-shadow: 0 12px 40px rgba(99, 102, 241, 0.06);
+}
+
+body:not(.is-app) .instruction-banner-card .title-group h3,
+body:not(.is-app) .privacy-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+body:not(.is-app) .banner-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+body:not(.is-app) .banner-list li {
+  text-align: left !important;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+}
+
+body:not(.is-app) .banner-list li span {
+  font-size: 14px;
+  color: var(--primary) !important;
+  font-weight: 700 !important;
+}
+
+body:not(.is-app) .banner-warning {
+  margin: 16px 0 0 0 !important;
+  max-width: 100% !important;
+  background: rgba(239, 68, 68, 0.03);
+  border: 1px solid rgba(239, 68, 68, 0.08);
+}
+
+body:not(.is-app) .permissions-list {
+  max-width: 100% !important;
+}
+
+body:not(.is-app) .permission-item {
+  text-align: left !important;
+  padding: 16px 0 !important;
+}
+
+body:not(.is-app) .permission-name {
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  color: var(--text-primary);
+}
+
+body:not(.is-app) .permission-desc {
+  font-size: 13px !important;
+  color: var(--text-secondary) !important;
+}
+
+/* Fallback for app styling alignment */
+body.is-app #view-home {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
