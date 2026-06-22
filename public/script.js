@@ -2003,28 +2003,50 @@ function launchScanner() {
   try {
     html5QrcodeScanner = new Html5Qrcode("qr-reader");
     const config = { fps: 10, qrbox: { width: 220, height: 220 } };
-    
+    let scanHandled = false; // prevent firing multiple times
+
     html5QrcodeScanner.start(
       { facingMode: "environment" },
       config,
       (decodedText) => {
+        if (scanHandled) return;
         try {
           let scannedRoomId = '';
+
+          // Handle all URL formats:
+          // 1. Full URL: http://192.168.x.x:8080/room.html#roomId
+          // 2. Full URL: https://ajshare.pages.dev/room.html#roomId
+          // 3. Plain hash: #roomId
+          // 4. Plain text: roomId
           if (decodedText.includes('#')) {
             scannedRoomId = decodedText.split('#').pop().trim();
           } else {
-            scannedRoomId = decodedText.trim();
+            // Try parsing as URL to get the path roomId
+            try {
+              const url = new URL(decodedText);
+              scannedRoomId = url.hash.replace('#', '').trim() || url.pathname.split('/').pop().trim();
+            } catch {
+              scannedRoomId = decodedText.trim();
+            }
           }
-          
+
+          // Strip any query params or trailing slashes
+          scannedRoomId = scannedRoomId.split('?')[0].replace(/\/$/, '').toLowerCase();
+
           if (scannedRoomId) {
+            scanHandled = true;
             showToast(`Joining room: ${scannedRoomId}`);
+            const stopAndNavigate = () => {
+              document.getElementById('scanner-modal').classList.remove('active');
+              // Use replace() instead of href assignment to avoid broken history
+              window.location.replace(`room.html#${scannedRoomId}`);
+            };
             if (html5QrcodeScanner) {
-              html5QrcodeScanner.stop().then(() => {
-                html5QrcodeScanner = null;
-                document.getElementById('scanner-modal').classList.remove('active');
-                window.location.href = `room.html#${scannedRoomId}`;
-                window.location.reload();
-              });
+              html5QrcodeScanner.stop()
+                .then(() => { html5QrcodeScanner = null; stopAndNavigate(); })
+                .catch(() => { html5QrcodeScanner = null; stopAndNavigate(); });
+            } else {
+              stopAndNavigate();
             }
           }
         } catch (err) {
