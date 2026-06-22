@@ -1294,18 +1294,47 @@ function finalizeReceivedFile() {
   } else {
     // Fallback: Create Blob and download
     const blob = new Blob(receiveFileState.chunks);
-    const url = URL.createObjectURL(blob);
     
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = receiveFileState.fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 1000);
+    if (isCapacitor) {
+      // In Capacitor/WebView, direct blob downloads fail.
+      // Upload the blob to our local HTTP server and trigger download via DownloadManager.
+      const formData = new FormData();
+      formData.append('file', blob);
+      const uploadUrl = `http://localhost:8080/api/register-file?name=${encodeURIComponent(receiveFileState.fileName)}&mime=${encodeURIComponent(blob.type || 'application/octet-stream')}`;
+      
+      fetch(uploadUrl, {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'OK') {
+          console.log('File registered locally for download:', data.downloadUrl);
+          window.location.href = data.downloadUrl;
+        } else {
+          throw new Error('Registration failed');
+        }
+      })
+      .catch(err => {
+        console.error('Failed to trigger local download fallback:', err);
+        showToast('Local download failed. Trying default...', 'danger');
+        // Ultimate fallback
+        const url = URL.createObjectURL(blob);
+        window.location.href = url;
+      });
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = receiveFileState.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+    }
   }
   
   // Cleanup after short delay
@@ -1965,14 +1994,18 @@ async function enableLocalIPs() {
     if (receiveFileState.isDirectDownload) {
       showToast('Starting direct download...', 'success');
       
-      let iframe = document.getElementById('sw-download-iframe');
-      if (!iframe) {
-        iframe = document.createElement('iframe');
-        iframe.id = 'sw-download-iframe';
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
+      if (isCapacitor) {
+        window.location.href = receiveFileState.downloadUrl;
+      } else {
+        let iframe = document.getElementById('sw-download-iframe');
+        if (!iframe) {
+          iframe = document.createElement('iframe');
+          iframe.id = 'sw-download-iframe';
+          iframe.style.display = 'none';
+          document.body.appendChild(iframe);
+        }
+        iframe.src = receiveFileState.downloadUrl;
       }
-      iframe.src = receiveFileState.downloadUrl;
       
       addHistoryItem(receiveFileState.fileName, receiveFileState.fileSize, 'received', 'completed');
       sendSignal(receiveFileState.senderPeerId, { type: 'ws-accept' });
