@@ -2103,7 +2103,7 @@ async function enableLocalIPs() {
     fetch(updateUrl)
       .then(res => res.json())
       .then(data => {
-        if (data && data.version && isNewerVersion(CURRENT_VERSION, data.version)) {
+        if (data && data.version && CURRENT_VERSION !== data.version) {
           console.log(`Update available: ${data.version} (current: ${CURRENT_VERSION})`);
           document.getElementById('update-version-str').textContent = data.version;
           if (data.notes) {
@@ -2119,18 +2119,6 @@ async function enableLocalIPs() {
       .catch(err => {
         console.warn('Failed to check for updates:', err);
       });
-  }
-
-  function isNewerVersion(current, latest) {
-    const currParts = current.split('.').map(Number);
-    const lateParts = latest.split('.').map(Number);
-    for (let i = 0; i < Math.max(currParts.length, lateParts.length); i++) {
-      const curr = currParts[i] || 0;
-      const late = lateParts[i] || 0;
-      if (late > curr) return true;
-      if (curr > late) return false;
-    }
-    return false;
   }
 
   // Update modal close actions
