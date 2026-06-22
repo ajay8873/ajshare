@@ -24,7 +24,8 @@ let localIpAddress = '';
 let pendingSignals = [];
 
 // App & OS Environment
-const isCapacitor = !!window.Capacitor || (window.location.hostname === 'localhost' && !window.location.port);
+const isElectron = !!(navigator.userAgent && navigator.userAgent.toLowerCase().includes('electron'));
+const isCapacitor = isElectron || !!window.Capacitor || (window.location.hostname === 'localhost' && !window.location.port);
 const isNanoHTTPD = !isCapacitor && window.location.port === '8080' && window.location.hostname !== 'localhost';
 
 // Generate/Load friendly peer names and device IDs
@@ -1524,17 +1525,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const apkBanner = document.querySelector('.apk-download-banner');
     if (apkBanner) apkBanner.style.display = 'none';
 
-    fetch('http://localhost:8080/api/ip')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.ip) {
-          localIpAddress = data.ip;
-          if (isRoomPage) {
-            generateQRCode();
-          }
+    if (isElectron && window.electronAPI && window.electronAPI.getLocalIp) {
+      // Electron: get local IP via IPC (no NanoHTTPD server available)
+      window.electronAPI.getLocalIp().then(ip => {
+        if (ip) {
+          localIpAddress = ip;
+          if (isRoomPage) generateQRCode();
         }
-      })
-      .catch(err => console.error('Failed to fetch local IP:', err));
+      }).catch(err => console.warn('Electron: Failed to get local IP:', err));
+    } else {
+      // Android Capacitor: get local IP from NanoHTTPD server
+      fetch('http://localhost:8080/api/ip')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.ip) {
+            localIpAddress = data.ip;
+            if (isRoomPage) generateQRCode();
+          }
+        })
+        .catch(err => console.error('Failed to fetch local IP:', err));
+    }
   } else if (isNanoHTTPD) {
     fetch('/api/peer-ip')
       .then(res => res.json())
