@@ -124,7 +124,7 @@ body.is-app .app-header {
   border-top: none;
   border-left: none;
   border-right: none;
-  padding-top: calc(env(safe-area-inset-top, 24px) + 8px) !important; /* safe area top-padding to clear phone notch/status-bar */
+  padding: calc(env(safe-area-inset-top, 24px) + 16px) 24px 20px 24px !important; /* increased top and bottom padding for a taller, spacious header */
 }
 
 .logo {

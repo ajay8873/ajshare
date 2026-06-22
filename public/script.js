@@ -2096,7 +2096,7 @@ async function enableLocalIPs() {
   document.getElementById('cancel-transfer-btn').addEventListener('click', cancelActiveTransfer);
 
   // App self-updater checker
-  const CURRENT_VERSION = '1.0.3';
+  const CURRENT_VERSION = '1.0.4';
   
   if (isCapacitor) {
     const updateUrl = 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/version.json';
