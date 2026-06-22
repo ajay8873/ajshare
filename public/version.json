@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "downloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare.apk",
-  "notes": "Premium decorated headers, update checking popup, and layout padding optimizations."
+  "notes": "Sharp-cornered top-aligned header design and strict version check logic."
 }
