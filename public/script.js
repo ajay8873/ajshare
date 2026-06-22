@@ -2096,7 +2096,7 @@ async function enableLocalIPs() {
   document.getElementById('cancel-transfer-btn').addEventListener('click', cancelActiveTransfer);
 
   // App self-updater checker
-  const CURRENT_VERSION = '1.0.2';
+  const CURRENT_VERSION = '1.0.3';
   
   if (isCapacitor) {
     const updateUrl = 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/version.json';
@@ -2132,6 +2132,23 @@ async function enableLocalIPs() {
   if (downloadUpdateBtn) {
     downloadUpdateBtn.addEventListener('click', () => {
       document.getElementById('update-modal').classList.remove('active');
+    });
+  }
+
+  // APK download prompt for website
+  if (!isCapacitor && !localStorage.getItem('apk_prompt_dismissed')) {
+    setTimeout(() => {
+      const apkModal = document.getElementById('apk-download-modal');
+      if (apkModal) {
+        apkModal.classList.add('active');
+      }
+    }, 3000);
+  }
+  const closeApkPromptBtn = document.getElementById('close-apk-prompt-btn');
+  if (closeApkPromptBtn) {
+    closeApkPromptBtn.addEventListener('click', () => {
+      document.getElementById('apk-download-modal').classList.remove('active');
+      localStorage.setItem('apk_prompt_dismissed', 'true');
     });
   }
 }

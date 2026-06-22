@@ -381,6 +381,30 @@
     </div>
   </div>
 
+  <!-- MODAL: APK Download Prompt (Website only) -->
+  <div class="modal-backdrop" id="apk-download-modal">
+    <div class="modal-content glass-card" style="max-width: 460px; text-align: center;">
+      <div class="modal-header" style="justify-content: center; flex-direction: column; gap: 12px;">
+        <div class="modal-icon info" style="background: rgba(99, 102, 241, 0.15); color: var(--primary); margin: 0 auto;">
+          <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"></path></svg>
+        </div>
+        <h3 style="font-size: 18px; font-weight: 700; margin: 0;">Get 10x Faster P2P Transfer!</h3>
+      </div>
+      <div class="modal-body" style="padding-top: 8px;">
+        <p style="font-size: 14px; line-height: 1.5; color: var(--text-secondary); margin-bottom: 12px;">
+          For optimized local transfer speeds (10-15+ Mbps) without using internet data, download our official Android app.
+        </p>
+        <p style="font-size: 12.5px; line-height: 1.5; color: var(--text-muted);">
+          Supports direct mobile hotspot networks, raw local IP discovery, and background transfer stability.
+        </p>
+      </div>
+      <div class="modal-footer" style="margin-top: 20px; display: flex; justify-content: center; gap: 12px;">
+        <button id="close-apk-prompt-btn" class="btn btn-secondary" style="font-size: 13px; padding: 8px 16px; min-width: 110px;">Maybe Later</button>
+        <a href="/ajshare.apk" download class="btn btn-primary" style="background: var(--success); box-shadow: 0 4px 12px var(--success-glow); border: none; color: white; text-decoration: none; font-size: 13px; padding: 8px 16px; display: inline-flex; align-items: center; justify-content: center; min-width: 130px;">Download APK</a>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION -->
   <div id="toast-container" class="toast-container"></div>
 

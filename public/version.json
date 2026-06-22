@@ -1,5 +1,5 @@
 {
-  "version": "1.0.2",
+  "version": "1.0.3",
   "downloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare.apk",
-  "notes": "Sharp-cornered top-aligned header design and strict version check logic."
+  "notes": "Added APK download prompt on website, resolved mobile safe-area paddings and card gaps."
 }

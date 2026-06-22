@@ -92,8 +92,8 @@ body {
 .app-header {
   max-width: 100% !important;
   width: 100%;
-  margin: 0 auto;
-  padding: 0 24px 16px 24px;
+  margin: 0 auto 24px auto !important; /* bottom margin creates gap between header and main */
+  padding: 16px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -124,6 +124,7 @@ body.is-app .app-header {
   border-top: none;
   border-left: none;
   border-right: none;
+  padding-top: calc(env(safe-area-inset-top, 24px) + 8px) !important; /* safe area top-padding to clear phone notch/status-bar */
 }
 
 .logo {
@@ -1769,12 +1770,12 @@ body.is-app .app-footer {
   width: 100%;
 }
 
-/* Ensure column children have a nice gap inside the App */
-body.is-app .home-left-col,
-body.is-app .home-right-col {
+/* Ensure column children have a nice gap for cards */
+.home-left-col,
+.home-right-col {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px !important;
 }
 
 /* Beautiful Container around CTA in the App */
