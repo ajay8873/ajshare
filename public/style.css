@@ -1592,7 +1592,7 @@ body:not(.is-app) .hero-desc {
 /* CTA & Buttons */
 body:not(.is-app) .home-cta-container {
   margin-top: 36px;
-  margin-bottom: 48px;
+  margin-bottom: 0;
 }
 
 body:not(.is-app) #start-sharing-btn {
@@ -1773,20 +1773,16 @@ body.is-app .home-right-col {
 
 /* Beautiful Container around CTA in the App */
 body.is-app .home-cta-container {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  margin-top: 24px;
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
 }
 
 body.is-app #start-sharing-btn {
   width: 100%;
+  max-width: 280px;
   padding: 14px 28px;
   font-size: 15px;
   border-radius: 100px;
