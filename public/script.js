@@ -2094,6 +2094,58 @@ async function enableLocalIPs() {
   
   // Cancel active transfers
   document.getElementById('cancel-transfer-btn').addEventListener('click', cancelActiveTransfer);
+
+  // App self-updater checker
+  const CURRENT_VERSION = '1.0.0';
+  
+  if (isCapacitor) {
+    const updateUrl = 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/version.json';
+    fetch(updateUrl)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.version && isNewerVersion(CURRENT_VERSION, data.version)) {
+          console.log(`Update available: ${data.version} (current: ${CURRENT_VERSION})`);
+          document.getElementById('update-version-str').textContent = data.version;
+          if (data.notes) {
+            document.getElementById('update-notes-str').textContent = data.notes;
+          }
+          const downloadBtn = document.getElementById('download-update-btn');
+          if (downloadBtn) {
+            downloadBtn.href = data.downloadUrl || 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare.apk';
+          }
+          document.getElementById('update-modal').classList.add('active');
+        }
+      })
+      .catch(err => {
+        console.warn('Failed to check for updates:', err);
+      });
+  }
+
+  function isNewerVersion(current, latest) {
+    const currParts = current.split('.').map(Number);
+    const lateParts = latest.split('.').map(Number);
+    for (let i = 0; i < Math.max(currParts.length, lateParts.length); i++) {
+      const curr = currParts[i] || 0;
+      const late = lateParts[i] || 0;
+      if (late > curr) return true;
+      if (curr > late) return false;
+    }
+    return false;
+  }
+
+  // Update modal close actions
+  const closeUpdateBtn = document.getElementById('close-update-btn');
+  if (closeUpdateBtn) {
+    closeUpdateBtn.addEventListener('click', () => {
+      document.getElementById('update-modal').classList.remove('active');
+    });
+  }
+  const downloadUpdateBtn = document.getElementById('download-update-btn');
+  if (downloadUpdateBtn) {
+    downloadUpdateBtn.addEventListener('click', () => {
+      document.getElementById('update-modal').classList.remove('active');
+    });
+  }
 }
 
 function copyRoomLink() {
