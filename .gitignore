@@ -1,0 +1,6 @@
+# Exclude compiled binaries from Git tracking to avoid file size limits
+*.exe
+*.apk
+ajshare_v1.0.7.exe
+ajshare_v1.0.7.apk
+public/*.apk
