@@ -2052,18 +2052,29 @@ function launchScanner() {
             localStorage.setItem('ajshare_room_id', scannedRoomId);
 
             const doNavigate = () => {
+              // Stop camera video stream tracks synchronously to prevent WebView deadlock on reload
+              const videoEl = document.querySelector('#qr-reader video');
+              if (videoEl && videoEl.srcObject) {
+                try {
+                  const stream = videoEl.srcObject;
+                  const tracks = stream.getTracks();
+                  tracks.forEach(track => track.stop());
+                } catch (e) {
+                  console.warn("Failed to manually stop video tracks:", e);
+                }
+              }
+
               document.getElementById('scanner-modal').classList.remove('active');
-              window.location.href = 'room.html';
-              window.location.reload();
+              window.location.hash = scannedRoomId;
+              
+              // Wait for 100ms for hash update to settle, then reload
+              setTimeout(() => {
+                window.location.reload();
+              }, 100);
             };
 
-            if (html5QrcodeScanner) {
-              html5QrcodeScanner.stop()
-                .then(() => { html5QrcodeScanner = null; doNavigate(); })
-                .catch(() => { html5QrcodeScanner = null; doNavigate(); });
-            } else {
-              doNavigate();
-            }
+            html5QrcodeScanner = null;
+            doNavigate();
           }
         } catch (err) {
           console.error("Failed to parse scanned URL:", err);
