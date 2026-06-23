@@ -1571,7 +1571,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const bannerLink = document.getElementById('banner-app-link');
       if (bannerLink) {
-        bannerLink.href = "https://raw.githubusercontent.com/ajay8873/ajshare/main/ajshare_v1.0.5.exe";
+        bannerLink.href = "https://raw.githubusercontent.com/ajay8873/ajshare/main/ajshare_v1.0.6.exe";
         bannerLink.textContent = "Download Windows App (EXE)";
         bannerLink.style.background = "var(--primary)";
         bannerLink.style.boxShadow = "0 4px 12px var(--primary-glow)";
@@ -1590,7 +1590,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const modalLink = document.getElementById('modal-app-link');
       if (modalLink) {
-        modalLink.href = "https://raw.githubusercontent.com/ajay8873/ajshare/main/ajshare_v1.0.5.exe";
+        modalLink.href = "https://raw.githubusercontent.com/ajay8873/ajshare/main/ajshare_v1.0.6.exe";
         modalLink.textContent = "Download Windows App (EXE)";
         modalLink.style.background = "var(--primary)";
         modalLink.style.boxShadow = "0 4px 12px var(--primary-glow)";
@@ -1897,7 +1897,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // App self-updater checker
-  const CURRENT_VERSION = '1.0.5';
+  const CURRENT_VERSION = '1.0.6';
   
   if (isCapacitor) {
     const updateUrl = 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/version.json';
@@ -1913,7 +1913,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const downloadBtn = document.getElementById('download-update-btn');
           if (downloadBtn) {
             const isElectron = navigator.userAgent.toLowerCase().includes('electron') || (typeof window !== 'undefined' && window.process && window.process.type);
-            downloadBtn.href = (isElectron ? data.windowsDownloadUrl : data.downloadUrl) || (isElectron ? 'https://raw.githubusercontent.com/ajay8873/ajshare/main/ajshare_v1.0.5.exe' : 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.5.apk');
+            downloadBtn.href = (isElectron ? data.windowsDownloadUrl : data.downloadUrl) || (isElectron ? 'https://raw.githubusercontent.com/ajay8873/ajshare/main/ajshare_v1.0.6.exe' : 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.6.apk');
           }
           document.getElementById('update-modal').classList.add('active');
         }
@@ -2003,7 +2003,7 @@ function launchScanner() {
   try {
     html5QrcodeScanner = new Html5Qrcode("qr-reader");
     const config = { fps: 10, qrbox: { width: 220, height: 220 } };
-    let scanHandled = false; // prevent firing multiple times
+    let scanHandled = false;
 
     html5QrcodeScanner.start(
       { facingMode: "environment" },
@@ -2013,15 +2013,13 @@ function launchScanner() {
         try {
           let scannedRoomId = '';
 
-          // Handle all URL formats:
-          // 1. Full URL: http://192.168.x.x:8080/room.html#roomId
-          // 2. Full URL: https://ajshare.pages.dev/room.html#roomId
-          // 3. Plain hash: #roomId
-          // 4. Plain text: roomId
+          // Extract roomId from any QR format:
+          // http://192.168.x.x:8080/room.html#roomId
+          // https://ajshare.pages.dev/room.html#roomId
+          // #roomId  or  plain roomId
           if (decodedText.includes('#')) {
             scannedRoomId = decodedText.split('#').pop().trim();
           } else {
-            // Try parsing as URL to get the path roomId
             try {
               const url = new URL(decodedText);
               scannedRoomId = url.hash.replace('#', '').trim() || url.pathname.split('/').pop().trim();
@@ -2030,23 +2028,30 @@ function launchScanner() {
             }
           }
 
-          // Strip any query params or trailing slashes
+          // Strip query params / trailing slashes
           scannedRoomId = scannedRoomId.split('?')[0].replace(/\/$/, '').toLowerCase();
 
           if (scannedRoomId) {
             scanHandled = true;
-            showToast(`Joining room: ${scannedRoomId}`);
-            const stopAndNavigate = () => {
+            showToast(`Joining room: ${scannedRoomId}`, 'info');
+
+            // KEY FIX: store the target room ID in localStorage BEFORE navigating.
+            // We navigate to room.html WITHOUT a hash so the page fully reloads.
+            // setupRoomId() will then read from localStorage and join the correct room.
+            localStorage.setItem('ajshare_room_id', scannedRoomId);
+
+            const doNavigate = () => {
               document.getElementById('scanner-modal').classList.remove('active');
-              // Use replace() instead of href assignment to avoid broken history
-              window.location.replace(`room.html#${scannedRoomId}`);
+              window.location.href = 'room.html';
+              window.location.reload();
             };
+
             if (html5QrcodeScanner) {
               html5QrcodeScanner.stop()
-                .then(() => { html5QrcodeScanner = null; stopAndNavigate(); })
-                .catch(() => { html5QrcodeScanner = null; stopAndNavigate(); });
+                .then(() => { html5QrcodeScanner = null; doNavigate(); })
+                .catch(() => { html5QrcodeScanner = null; doNavigate(); });
             } else {
-              stopAndNavigate();
+              doNavigate();
             }
           }
         } catch (err) {

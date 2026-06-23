@@ -1,6 +1,6 @@
 {
-  "version": "1.0.5",
-  "downloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.5.apk",
-  "windowsDownloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/ajshare_v1.0.5.exe",
-  "notes": "Migrated to multi-page architecture and added local subnet verification for app transfers."
+  "version": "1.0.6",
+  "downloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.6.apk",
+  "windowsDownloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/ajshare_v1.0.6.exe",
+  "notes": "Fixed QR code scanner navigation reload issue to ensure correct room is joined."
 }
