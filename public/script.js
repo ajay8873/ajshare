@@ -1489,9 +1489,10 @@ function generateQRCode() {
     element: canvas,
     value: targetUrl,
     size: 260,
+    padding: 12,
     background: '#ffffff',
     foreground: '#0a0c16',
-    level: 'H'
+    level: 'M'
   });
   const linkText = document.getElementById('qr-link-text');
   if (linkText) {
@@ -2002,7 +2003,17 @@ async function startWebRTCTransfer(file, peer, forceRelay) {
 function launchScanner() {
   try {
     html5QrcodeScanner = new Html5Qrcode("qr-reader");
-    const config = { fps: 10, qrbox: { width: 220, height: 220 } };
+    const config = {
+      fps: 10,
+      qrbox: (viewfinderWidth, viewfinderHeight) => {
+        const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+        const qrboxSize = Math.floor(minEdge * 0.7);
+        return {
+          width: qrboxSize,
+          height: qrboxSize
+        };
+      }
+    };
     let scanHandled = false;
 
     html5QrcodeScanner.start(
