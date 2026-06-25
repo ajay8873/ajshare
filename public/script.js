@@ -676,6 +676,27 @@ function handleDataChannelMessage(peerId, data) {
           document.getElementById('incoming-modal').classList.add('active');
           break;
           
+        case 'direct-download':
+          if (isCapacitor && peerInfo && peerInfo.isCapacitor && localIpAddress && peerInfo.localIp) {
+            if (localIpAddress.split('.').slice(0, 3).join('.') !== peerInfo.localIp.split('.').slice(0, 3).join('.')) {
+              showToast('Download blocked: Devices are not on the same local subnet.', 'danger');
+              return;
+            }
+          }
+
+          receiveFileState = {
+            fileName: msg.name,
+            fileSize: msg.size,
+            downloadUrl: msg.downloadUrl,
+            senderPeerId: peerId,
+            isDirectDownload: true
+          };
+          document.getElementById('incoming-peer-name').textContent = peerInfo ? peerInfo.name : 'Remote Device';
+          document.getElementById('incoming-file-name').textContent = msg.name;
+          document.getElementById('incoming-file-size').textContent = formatBytes(msg.size);
+          document.getElementById('incoming-modal').classList.add('active');
+          break;
+
         case 'accept':
           startFileTransmission();
           break;
@@ -1350,9 +1371,6 @@ function removePeer(peerId) {
   if (peers.size === 0) {
     const emptyState = document.getElementById('empty-state');
     if (emptyState) emptyState.style.display = 'flex';
-    
-    // Redirect room owner/participants back to setup
-    window.location.href = `room.html#${roomId}`;
   }
 }
 
@@ -1774,12 +1792,17 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(r => r.json())
         .then(data => {
           if (data.status === 'OK') {
-            sendSignal(sendFileState.targetPeerId, {
+            const payload = {
               type: 'direct-download',
               name: file.name,
               size: file.size,
               downloadUrl: data.downloadUrl
-            });
+            };
+            if (peer && peer.dc && peer.dc.readyState === 'open') {
+              peer.dc.send(JSON.stringify(payload));
+            } else {
+              sendSignal(sendFileState.targetPeerId, payload);
+            }
             document.getElementById('transfer-title').textContent = 'File Shared';
             document.getElementById('transfer-peer-info').textContent = `Shared with ${peer.name} (Direct App Transfer)`;
             const badge = document.getElementById('connection-mode-badge');
