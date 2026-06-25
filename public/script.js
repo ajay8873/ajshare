@@ -323,6 +323,8 @@ function handleSignalingMessage(msg) {
           if (nameEl) nameEl.textContent = sig.name;
           const avatarEl = card.querySelector('.peer-avatar');
           if (avatarEl) avatarEl.textContent = sig.name.substring(0, 2).toUpperCase();
+        } else {
+          addPeerCardToGrid(msg.sender, sig.name);
         }
       } else if (sig.type === 'direct-download') {
         // Enforce same-network blocking
@@ -471,21 +473,25 @@ function handleIncomingSignal(peerId, signal) {
     peerInfo.webrtcFailed = false;
   }
   
-  if (!peerInfo) {
+  if (!peerInfo || !peerInfo.pc) {
     const pc = new RTCPeerConnection(rtcConfig);
-    const friendlyName = generateFriendlyName();
+    const friendlyName = peerInfo ? peerInfo.name : generateFriendlyName();
     
-    peerInfo = {
-      pc: pc,
-      dc: null,
-      name: friendlyName,
-      deviceType: 'Device',
-      localIp: '',
-      candidateQueue: [],
-      remoteDescSet: false,
-      webrtcFailed: false
-    };
-    peers.set(peerId, peerInfo);
+    if (!peerInfo) {
+      peerInfo = {
+        pc: pc,
+        dc: null,
+        name: friendlyName,
+        deviceType: 'Device',
+        localIp: '',
+        candidateQueue: [],
+        remoteDescSet: false,
+        webrtcFailed: false
+      };
+      peers.set(peerId, peerInfo);
+    } else {
+      peerInfo.pc = pc;
+    }
     
     pc.oniceconnectionstatechange = () => {
       if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'closed') {
@@ -512,6 +518,9 @@ function handleIncomingSignal(peerId, signal) {
     };
     
     addPeerCardToGrid(peerId, friendlyName);
+  } else {
+    // Make sure card exists if peerInfo already exists but card wasn't rendered yet
+    addPeerCardToGrid(peerId, peerInfo.name);
   }
   
   const pc = peerInfo.pc;
