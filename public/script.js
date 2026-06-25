@@ -275,12 +275,14 @@ function handleSignalingMessage(msg) {
       
     case 'peer-left':
       if (isPeersPage) {
-        const peer = peers.get(msg.peerId);
-        if (peer && (peer.isSelectingFile || (peer.dc && peer.dc.readyState === 'open'))) {
-          console.log(`Peer ${msg.peerId} left signaling but WebRTC is active.`);
-        } else {
-          showToast('A peer left the room', 'info');
-          removePeer(msg.peerId);
+        if (peers.has(msg.peerId)) {
+          const peer = peers.get(msg.peerId);
+          if (peer && (peer.isSelectingFile || (peer.dc && peer.dc.readyState === 'open'))) {
+            console.log(`Peer ${msg.peerId} left signaling but WebRTC is active.`);
+          } else {
+            showToast('A peer left the room', 'info');
+            removePeer(msg.peerId);
+          }
         }
       }
       break;
