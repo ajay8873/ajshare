@@ -341,7 +341,14 @@ function handleSignalingMessage(msg) {
           fileSize: sig.size,
           downloadUrl: sig.downloadUrl,
           senderPeerId: msg.sender,
-          isDirectDownload: true
+          isDirectDownload: true,
+          receivedSize: 0,
+          chunks: [],
+          startTime: null,
+          lastBytesReceived: 0,
+          lastTime: null,
+          streamId: Math.random().toString(36).substring(2, 15),
+          useStream: false
         };
         document.getElementById('incoming-peer-name').textContent = pInfo ? pInfo.name : 'Remote Device';
         document.getElementById('incoming-file-name').textContent = sig.name;
@@ -698,7 +705,14 @@ function handleDataChannelMessage(peerId, data) {
             fileSize: msg.size,
             downloadUrl: msg.downloadUrl,
             senderPeerId: peerId,
-            isDirectDownload: true
+            isDirectDownload: true,
+            receivedSize: 0,
+            chunks: [],
+            startTime: null,
+            lastBytesReceived: 0,
+            lastTime: null,
+            streamId: Math.random().toString(36).substring(2, 15),
+            useStream: false
           };
           document.getElementById('incoming-peer-name').textContent = peerInfo ? peerInfo.name : 'Remote Device';
           document.getElementById('incoming-file-name').textContent = msg.name;
@@ -1054,7 +1068,7 @@ function finalizeReceivedFile() {
   } else {
     const blob = new Blob(receiveFileState.chunks);
     
-    if (isCapacitor) {
+    if (isCapacitor && !isElectron) {
       const formData = new FormData();
       formData.append('file', blob);
       const uploadUrl = `http://localhost:8080/api/register-file?name=${encodeURIComponent(receiveFileState.fileName)}&mime=${encodeURIComponent(blob.type || 'application/octet-stream')}`;
@@ -1842,9 +1856,21 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (receiveFileState.isDirectDownload) {
         showToast('Starting direct download...', 'success');
-        if (isCapacitor) {
-          window.location.href = receiveFileState.downloadUrl;
-        } else {
+        
+        const sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+        if (sw) {
+          const messageChannel = new MessageChannel();
+          sw.postMessage({
+            type: 'CREATE_STREAM',
+            streamId: receiveFileState.streamId,
+            name: receiveFileState.fileName,
+            size: receiveFileState.fileSize
+          }, [messageChannel.port2]);
+
+          await new Promise((resolve) => {
+            messageChannel.port1.onmessage = (e) => resolve(e.data);
+          });
+
           let iframe = document.getElementById('sw-download-iframe');
           if (!iframe) {
             iframe = document.createElement('iframe');
@@ -1852,10 +1878,31 @@ document.addEventListener('DOMContentLoaded', () => {
             iframe.style.display = 'none';
             document.body.appendChild(iframe);
           }
-          iframe.src = receiveFileState.downloadUrl;
+          iframe.src = `/download-stream/${receiveFileState.streamId}`;
+          receiveFileState.useStream = true;
+        } else {
+          receiveFileState.useStream = false;
         }
-        addHistoryItem(receiveFileState.fileName, receiveFileState.fileSize, 'received', 'completed');
+
         sendSignal(receiveFileState.senderPeerId, { type: 'ws-accept' });
+
+        fetch(receiveFileState.downloadUrl)
+          .then(async (response) => {
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const reader = response.body.getReader();
+            
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const buffer = value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength);
+              processIncomingChunk(receiveFileState.senderPeerId, buffer);
+            }
+          })
+          .catch((err) => {
+            console.error('Direct download fetch failed:', err);
+            showToast('Download failed: ' + err.message, 'danger');
+            cancelActiveTransfer();
+          });
         return;
       }
       
