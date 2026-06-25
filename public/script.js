@@ -2212,6 +2212,14 @@ function formatBytes(bytes, decimals = 2) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
+function formatTime(seconds) {
+  if (isNaN(seconds) || seconds === Infinity) return 'Calculating...';
+  if (seconds < 60) return `${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}m ${secs}s`;
+}
+
 // History List management
 let transferHistory = [];
 function loadHistory() {
