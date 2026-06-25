@@ -1888,7 +1888,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // App self-updater checker
-  const CURRENT_VERSION = '1.0.6';
+  const CURRENT_VERSION = '1.0.7';
   
   if (isCapacitor) {
     const updateUrl = 'https://raw.githubusercontent.com/ajay8873/ajshare/main/public/version.json';

@@ -1,6 +1,6 @@
 {
-  "version": "1.0.6",
-  "downloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.6.apk",
-  "windowsDownloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/ajshare_v1.0.6.exe",
-  "notes": "Fixed QR code scanner navigation reload issue to ensure correct room is joined."
+  "version": "1.0.7",
+  "downloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/public/ajshare_v1.0.7.apk",
+  "windowsDownloadUrl": "https://raw.githubusercontent.com/ajay8873/ajshare/main/ajshare_v1.0.7.exe",
+  "notes": "Fixed direct download progress bar and status badge remaining 'downloading' in history after transfer completion."
 }
