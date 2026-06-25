@@ -600,20 +600,10 @@ function rewriteSdpOrCandidate(signal) {
     const ip  = parts[4];
 
     if (typ === 'host' && ip) {
-      parts[4] = localIpAddress;
-      return parts.join(' ');
-    }
-    if (typ === 'srflx') {
-      let rport = null;
-      for (let i = 8; i < parts.length - 1; i++) {
-        if (parts[i] === 'rport' && parts[i + 1] !== '0') {
-          rport = parts[i + 1];
-          break;
-        }
+      if (ip.endsWith('.local') || !/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(ip)) {
+        parts[4] = localIpAddress;
+        return parts.join(' ');
       }
-      if (!rport) return null;
-      const foundation = parts[0].includes(':') ? parts[0].split(':')[1] : parts[0];
-      return `candidate:${foundation} ${parts[1]} udp 2122260223 ${localIpAddress} ${rport} typ host`;
     }
     return null;
   };
